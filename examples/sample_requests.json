@@ -1,0 +1,100 @@
+{
+  "customer_support_example": {
+    "template_name": "customer_support_template",
+    "template_category": "business_operations",
+    "variables": {
+      "company_name": "TechFlow Solutions",
+      "customer_context": "Premium customer since 2022, active mobile app user",
+      "customer_issue": "Unable to access premium features after recent app update",
+      "priority_level": "High",
+      "account_type": "Premium",
+      "tone": "empathetic",
+      "response_time": "2 hours",
+      "company_policy": "All premium issues resolved within 4 hours with escalation path",
+      "issue_category": "Technical",
+      "interaction_history": "Previous contact 3 months ago for billing inquiry, resolved successfully",
+      "additional_notes": "Customer mentioned they have an important presentation tomorrow",
+      "ticket_system": "ServiceNow"
+    }
+  },
+  "data_analysis_example": {
+    "template_name": "data_analysis_template",
+    "template_category": "business_operations",
+    "variables": {
+      "analysis_domain": "E-commerce Sales Analytics",
+      "dataset_name": "Q4 2024 Sales Performance",
+      "analysis_period": "October - December 2024",
+      "key_metrics": "Revenue, Conversion Rate, Customer Acquisition Cost, Average Order Value",
+      "business_objective": "Identify growth opportunities for Q1 2025",
+      "focus_area": "Customer retention and upselling strategies",
+      "comparison_type": "Year-over-year and quarter-over-quarter",
+      "stakeholder_level": "Executive",
+      "urgency_level": "High",
+      "analysis_type": "trend and correlation",
+      "trend_count": "5",
+      "metric_categories": "Sales, Marketing, Customer Behavior",
+      "benchmark_type": "industry standard",
+      "anomaly_threshold": "3",
+      "recommendation_count": "7",
+      "summary_length": "200",
+      "chart_types": "bar charts, line graphs, heat maps",
+      "risk_categories": "Market, Operational, Financial",
+      "timeline_scope": "Next 6 months",
+      "domain_specific_notes": "Focus on mobile commerce trends and seasonal patterns"
+    }
+  },
+  "blog_post_example": {
+    "template_name": "blog_post_template",
+    "template_category": "content_creation",
+    "variables": {
+      "industry_vertical": "Digital Marketing Technology",
+      "blog_topic": "AI-Powered Marketing Automation Trends in 2025",
+      "target_audience": "Marketing professionals and business owners",
+      "content_objective": "Educate and generate leads",
+      "brand_tone": "Professional yet approachable",
+      "target_word_count": "1500",
+      "primary_keyword": "AI marketing automation",
+      "secondary_keywords": "machine learning marketing, automated campaigns, marketing AI tools",
+      "search_intent": "Informational",
+      "content_pillar": "Marketing Technology",
+      "brand_voice": "Expert, helpful, innovative",
+      "style_preferences": "Use data-driven insights, include actionable tips",
+      "compliance_notes": "Ensure GDPR compliance mentions for EU readers",
+      "cta_type": "Free consultation booking",
+      "pain_point": "Difficulty scaling personalized marketing efforts",
+      "section_count": "4",
+      "key_subtopics": "AI personalization, automated email sequences, predictive analytics, ROI measurement",
+      "example_count": "3",
+      "data_sources": "Industry reports, case studies, survey data",
+      "expert_perspectives": "Marketing automation specialists, AI researchers",
+      "visual_types": "Infographics, charts, workflow diagrams",
+      "internal_link_targets": "Marketing automation guide, AI tools comparison",
+      "external_sources": "HubSpot, Salesforce research, Forrester reports",
+      "special_instructions": "Include 2025 predictions and emerging trends"
+    }
+  },
+  "validation_test_cases": {
+    "missing_required_variable": {
+      "template_name": "customer_support_template",
+      "template_category": "business_operations",
+      "variables": {
+        "company_name": "TechFlow Solutions",
+        "customer_issue": "Login problems"
+      }
+    },
+    "invalid_enum_value": {
+      "template_name": "customer_support_template",
+      "template_category": "business_operations",
+      "variables": {
+        "company_name": "TechFlow Solutions",
+        "customer_context": "New customer",
+        "customer_issue": "Login problems",
+        "priority_level": "Super Critical",
+        "account_type": "Premium",
+        "tone": "aggressive",
+        "response_time": "immediately",
+        "issue_category": "Technical"
+      }
+    }
+  }
+}
