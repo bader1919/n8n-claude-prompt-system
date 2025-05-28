@@ -1,0 +1,161 @@
+{
+  "name": "Master Template Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "trigger-node"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/templates/{{ $json.template_category }}/{{ $json.template_name }}.txt",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Fetch Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "id": "fetch-template-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template Processing and Variable Validation\nconst templateContent = $node['Fetch Template'].json;\nconst inputData = $node['Manual Trigger'].json;\nconst variables = inputData.variables || {};\n\n// Extract required variables from template\nconst variablePattern = /\\{\\{(\\w+)\\}\\}/g;\nconst requiredVars = [];\nlet match;\n\nwhile ((match = variablePattern.exec(templateContent)) !== null) {\n  if (!requiredVars.includes(match[1])) {\n    requiredVars.push(match[1]);\n  }\n}\n\n// Validate all variables are present\nconst missingVars = requiredVars.filter(varName => \n  !variables.hasOwnProperty(varName) || variables[varName] === null || variables[varName] === ''\n);\n\nif (missingVars.length > 0) {\n  throw new Error(`Missing required variables: ${missingVars.join(', ')}`);\n}\n\n// Process template with variables\nlet processedPrompt = templateContent;\nfor (const [key, value] of Object.entries(variables)) {\n  const regex = new RegExp(`\\{\\{${key}\\}\}`, 'g');\n  processedPrompt = processedPrompt.replace(regex, value);\n}\n\n// Return processed data\nreturn {\n  processedPrompt: processedPrompt,\n  metadata: {\n    template_name: inputData.template_name,\n    template_category: inputData.template_category,\n    variables_used: Object.keys(variables),\n    processing_time: new Date().toISOString(),\n    character_count: processedPrompt.length\n  },\n  original_variables: variables\n};"
+      },
+      "name": "Process Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "process-variables-node"
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": {
+          "name": "x-api-key",
+          "value": "={{ $env.ANTHROPIC_API_KEY }}"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-sonnet-4-20250514"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1000"
+            },
+            {
+              "name": "messages",
+              "value": "[{\"role\": \"user\", \"content\": \"{{ $node['Process Variables'].json.processedPrompt }}\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Claude API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300],
+      "id": "claude-api-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Response Processing and Logging\nconst claudeResponse = $node['Claude API Call'].json;\nconst metadata = $node['Process Variables'].json.metadata;\nconst originalVars = $node['Process Variables'].json.original_variables;\n\n// Extract Claude's response content\nconst responseContent = claudeResponse.content && claudeResponse.content[0] \n  ? claudeResponse.content[0].text \n  : 'No response content';\n\n// Create comprehensive response object\nconst processedResponse = {\n  claude_response: responseContent,\n  execution_metadata: {\n    ...metadata,\n    tokens_used: claudeResponse.usage || {},\n    response_time: new Date().toISOString(),\n    success: true\n  },\n  template_info: {\n    name: metadata.template_name,\n    category: metadata.template_category,\n    variables_count: metadata.variables_used.length\n  },\n  original_request: {\n    variables: originalVars,\n    processed_prompt_length: metadata.character_count\n  }\n};\n\nreturn processedResponse;"
+      },
+      "name": "Response Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "response-handler-node"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Template": {
+      "main": [
+        [
+          {
+            "node": "Process Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Variables": {
+      "main": [
+        [
+          {
+            "node": "Claude API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API Call": {
+      "main": [
+        [
+          {
+            "node": "Response Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Claude AI",
+      "id": "claude-ai"
+    },
+    {
+      "name": "Template System",
+      "id": "template-system"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
