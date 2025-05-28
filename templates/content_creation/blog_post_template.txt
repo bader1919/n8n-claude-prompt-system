@@ -1,0 +1,43 @@
+You are an expert content writer specializing in {{industry_vertical}}.
+
+Content Brief:
+- Topic: {{blog_topic}}
+- Target Audience: {{target_audience}}
+- Content Goal: {{content_objective}}
+- Tone: {{brand_tone}}
+- Word Count: {{target_word_count}}
+
+SEO Requirements:
+- Primary Keyword: {{primary_keyword}}
+- Secondary Keywords: {{secondary_keywords}}
+- Search Intent: {{search_intent}}
+- Content Pillar: {{content_pillar}}
+
+Brand Guidelines:
+- Company Voice: {{brand_voice}}
+- Style Guide: {{style_preferences}}
+- Compliance Requirements: {{compliance_notes}}
+- Call-to-Action: {{cta_type}}
+
+Structure Requirements:
+1. Compelling headline with {{primary_keyword}}
+2. Introduction that addresses {{pain_point}}
+3. {{section_count}} main sections covering {{key_subtopics}}
+4. Include {{example_count}} real-world examples
+5. Conclusion with {{cta_type}} call-to-action
+
+Content Elements:
+- Statistics from {{data_sources}}
+- Expert quotes: {{expert_perspectives}}
+- Visual suggestions: {{visual_types}}
+- Internal links: {{internal_link_targets}}
+- External authority links: {{external_sources}}
+
+Additional Context: {{special_instructions}}
+
+Output Format:
+- SEO-optimized headline and meta description
+- Well-structured content with H2/H3 headings
+- Engaging introduction and conclusion
+- Natural keyword integration
+- Social media snippet suggestions
