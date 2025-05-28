@@ -1,0 +1,105 @@
+{
+  "name": "Claude Processor - Part 2",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "webhook-trigger-node",
+      "webhookId": "claude-processor"
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": {
+          "name": "x-api-key",
+          "value": "={{ $env.ANTHROPIC_API_KEY }}"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-sonnet-4-20250514"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1000"
+            },
+            {
+              "name": "messages",
+              "value": "[{\"role\": \"user\", \"content\": \"{{ $json.processedPrompt }}\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Claude API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "id": "claude-api-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Response Processing and Logging\nconst claudeResponse = $node['Claude API Call'].json;\nconst inputData = $node['Webhook Trigger'].json;\n\n// Extract Claude's response content\nconst responseContent = claudeResponse.content && claudeResponse.content[0] \n  ? claudeResponse.content[0].text \n  : 'No response content';\n\n// Create comprehensive response object\nconst processedResponse = {\n  claude_response: responseContent,\n  execution_metadata: {\n    template_name: inputData.metadata?.template_name || 'unknown',\n    tokens_used: claudeResponse.usage || {},\n    response_time: new Date().toISOString(),\n    success: true\n  },\n  original_request: {\n    prompt_length: inputData.processedPrompt?.length || 0,\n    variables_used: inputData.metadata?.variables_used || []\n  }\n};\n\nreturn processedResponse;"
+      },
+      "name": "Response Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "response-handler-node"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Claude API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API Call": {
+      "main": [
+        [
+          {
+            "node": "Response Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Claude AI",
+      "id": "claude-ai"
+    }
+  ]
+}
