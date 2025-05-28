@@ -1,0 +1,67 @@
+{
+  "template_name": "customer_support_template",
+  "version": "1.0",
+  "required_variables": [
+    "company_name",
+    "customer_context",
+    "customer_issue",
+    "priority_level",
+    "account_type",
+    "tone",
+    "response_time",
+    "issue_category"
+  ],
+  "optional_variables": [
+    "company_policy",
+    "interaction_history",
+    "additional_notes",
+    "ticket_system"
+  ],
+  "variable_definitions": {
+    "company_name": {
+      "type": "string",
+      "description": "Name of the company providing support",
+      "example": "TechCorp Solutions"
+    },
+    "customer_context": {
+      "type": "string",
+      "description": "Background information about the customer",
+      "example": "Premium customer since 2020, frequent user of mobile app"
+    },
+    "customer_issue": {
+      "type": "string",
+      "description": "Detailed description of the customer's problem",
+      "example": "Unable to access premium features after recent app update"
+    },
+    "priority_level": {
+      "type": "string",
+      "enum": ["Low", "Medium", "High", "Critical"],
+      "description": "Urgency level of the support request"
+    },
+    "account_type": {
+      "type": "string",
+      "enum": ["Basic", "Premium", "Enterprise"],
+      "description": "Customer's subscription tier"
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["professional", "friendly", "empathetic", "urgent"],
+      "description": "Desired communication tone"
+    },
+    "response_time": {
+      "type": "string",
+      "description": "Expected resolution timeframe",
+      "example": "24 hours"
+    },
+    "issue_category": {
+      "type": "string",
+      "enum": ["Technical", "Billing", "Account", "Feature Request", "Bug Report"],
+      "description": "Category of the support issue"
+    }
+  },
+  "validation_rules": {
+    "priority_level": "Must be one of: Low, Medium, High, Critical",
+    "account_type": "Must match customer's actual subscription level",
+    "response_time": "Must include time unit (hours, days, etc.)"
+  }
+}
