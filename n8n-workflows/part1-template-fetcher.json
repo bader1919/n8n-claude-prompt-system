@@ -1,0 +1,75 @@
+{
+  "name": "Template Fetcher - Part 1",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "trigger-node"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/templates/{{ $json.template_category }}/{{ $json.template_name }}.txt",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Fetch Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "id": "fetch-template-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template Processing and Variable Validation\nconst templateContent = $node['Fetch Template'].json;\nconst inputData = $node['Manual Trigger'].json;\nconst variables = inputData.variables || {};\n\n// Extract required variables from template\nconst variablePattern = /\\{\\{(\\w+)\\}\\}/g;\nconst requiredVars = [];\nlet match;\n\nwhile ((match = variablePattern.exec(templateContent)) !== null) {\n  if (!requiredVars.includes(match[1])) {\n    requiredVars.push(match[1]);\n  }\n}\n\n// Validate all variables are present\nconst missingVars = requiredVars.filter(varName => \n  !variables.hasOwnProperty(varName) || variables[varName] === null || variables[varName] === ''\n);\n\nif (missingVars.length > 0) {\n  throw new Error(`Missing required variables: ${missingVars.join(', ')}`);\n}\n\n// Process template with variables\nlet processedPrompt = templateContent;\nfor (const [key, value] of Object.entries(variables)) {\n  const regex = new RegExp(`\\{\\{${key}\\}\}`, 'g');\n  processedPrompt = processedPrompt.replace(regex, value);\n}\n\n// Return processed data\nreturn {\n  processedPrompt: processedPrompt,\n  metadata: {\n    template_name: inputData.template_name,\n    template_category: inputData.template_category,\n    variables_used: Object.keys(variables),\n    processing_time: new Date().toISOString(),\n    character_count: processedPrompt.length\n  },\n  original_variables: variables\n};"
+      },
+      "name": "Process Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "process-variables-node"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Template": {
+      "main": [
+        [
+          {
+            "node": "Process Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Template System",
+      "id": "template-system"
+    }
+  ]
+}
