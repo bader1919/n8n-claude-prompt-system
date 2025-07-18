@@ -394,7 +394,22 @@ class TemplateManager {
     }
 
     /**
-     * Get template by key
+     * Get template by key with variable injection support
+     *
+     * @param {string} templateKey - The template identifier in format "category/name"
+     * @returns {Promise<Object|null>} Template object with content and metadata, or null if not found
+     *
+     * @example
+     * // Get a customer support template
+     * const template = await templateManager.getTemplate('business_operations/customer_support_template');
+     * // Returns: { content: "You are an expert...", variables: ["company_name", "customer_issue"], ... }
+     *
+     * @example
+     * // Common n8n workflow pattern
+     * const template = await templateManager.getTemplate($json.template_name);
+     * if (template) {
+     *   const response = await claudeProvider.generateCompletion(template.content, variables);
+     * }
      */
     async getTemplate(templateKey) {
         const template = this.registry.get(templateKey);
@@ -499,6 +514,153 @@ class TemplateManager {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Inject variables into template content using n8n-style placeholders
+     *
+     * @param {string} templateContent - Template content with {{variable}} placeholders
+     * @param {Object} variables - Key-value pairs of variables to inject
+     * @returns {string} Template with variables replaced
+     *
+     * @example
+     * // Basic variable injection for customer support
+     * const template = "Hello {{customer_name}}, regarding your {{issue_type}}...";
+     * const variables = { customer_name: "John Doe", issue_type: "billing inquiry" };
+     * const result = templateManager.injectVariables(template, variables);
+     * // Returns: "Hello John Doe, regarding your billing inquiry..."
+     *
+     * @example
+     * // n8n workflow usage pattern
+     * const template = await templateManager.getTemplate($json.template_name);
+     * const processedPrompt = templateManager.injectVariables(template.content, {
+     *   customer_name: $json.customer_name,
+     *   issue_description: $json.issue,
+     *   priority_level: $json.priority || "Medium",
+     *   company_name: $env.COMPANY_NAME
+     * });
+     *
+     * @example
+     * // Advanced variable injection with nested objects
+     * const variables = {
+     *   customer: { name: "Alice", tier: "Premium" },
+     *   issue: { category: "Technical", urgency: "High" }
+     * };
+     * // Use dot notation: {{customer.name}}, {{issue.category}}
+     */
+    injectVariables(templateContent, variables = {}) {
+        if (!templateContent || typeof templateContent !== 'string') {
+            return templateContent || '';
+        }
+
+        let result = templateContent;
+
+        // Replace simple variables: {{key}}
+        for (const [key, value] of Object.entries(variables)) {
+            const placeholder = `{{${key}}}`;
+            const replacement = value !== null && value !== undefined ? String(value) : '';
+            result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
+        }
+
+        // Handle nested object variables: {{object.property}}
+        result = result.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+            const keys = path.split('.');
+            let value = variables;
+
+            for (const key of keys) {
+                if (value && typeof value === 'object' && key in value) {
+                    value = value[key];
+                } else {
+                    return match; // Return original placeholder if path not found
+                }
+            }
+
+            return value !== null && value !== undefined ? String(value) : '';
+        });
+
+        return result;
+    }
+
+    /**
+     * Create a new prompt template with n8n and Claude AI best practices
+     *
+     * @param {Object} templateConfig - Configuration for the new template
+     * @param {string} templateConfig.name - Template name (snake_case recommended)
+     * @param {string} templateConfig.category - Template category (e.g., 'business_operations', 'content_creation')
+     * @param {string} templateConfig.content - Template content with {{variable}} placeholders
+     * @param {Array<string>} templateConfig.variables - Array of variable names used in template
+     * @param {Object} templateConfig.metadata - Additional metadata
+     * @returns {Promise<Object>} Created template object
+     *
+     * @example
+     * // Create a customer support template
+     * const supportTemplate = await templateManager.createPromptTemplate({
+     *   name: "escalation_response",
+     *   category: "customer_support",
+     *   content: `You are a {{tone}} customer service manager for {{company_name}}.
+     *
+     * Customer Issue: {{customer_issue}}
+     * Escalation Reason: {{escalation_reason}}
+     * Customer Tier: {{customer_tier}}
+     *
+     * Please provide a professional response that:
+     * 1. Acknowledges the escalation
+     * 2. Offers immediate next steps
+     * 3. Provides timeline for resolution`,
+     *   variables: ["tone", "company_name", "customer_issue", "escalation_reason", "customer_tier"],
+     *   metadata: { author: "CS Team", version: "1.0" }
+     * });
+     *
+     * @example
+     * // Create a content generation template for n8n workflows
+     * const contentTemplate = await templateManager.createPromptTemplate({
+     *   name: "blog_post_generator",
+     *   category: "content_creation",
+     *   content: `Create a {{post_type}} blog post about {{topic}}.
+     *
+     * Target Audience: {{target_audience}}
+     * Tone: {{tone}}
+     * Word Count: {{word_count}}
+     * SEO Keywords: {{keywords}}
+     *
+     * Structure:
+     * - Compelling headline
+     * - Introduction with hook
+     * - {{sections_count}} main sections
+     * - Conclusion with CTA`,
+     *   variables: ["post_type", "topic", "target_audience", "tone", "word_count", "keywords", "sections_count"]
+     * });
+     */
+    async createPromptTemplate(templateConfig) {
+        const { name, category, content, variables = [], metadata = {} } = templateConfig;
+
+        if (!name || !category || !content) {
+            throw new Error('Template name, category, and content are required');
+        }
+
+        // Validate variable usage in content
+        const templateVariables = this.extractVariables(content);
+        const missingVariables = variables.filter(v => !templateVariables.includes(v));
+        if (missingVariables.length > 0) {
+            console.warn(`Template '${name}' declares variables not used in content:`, missingVariables);
+        }
+
+        const templateData = {
+            name,
+            category,
+            content,
+            variables: templateVariables,
+            hash: crypto.createHash('md5').update(content).digest('hex'),
+            qualityScore: this.calculateQualityScore(content, templateVariables),
+            fileSize: Buffer.byteLength(content, 'utf8'),
+            characterCount: content.length,
+            wordCount: content.split(/\s+/).length,
+            lastModified: new Date().toISOString(),
+            metadata
+        };
+
+        await this.addTemplate(templateData, category);
+        return templateData;
     }
 
     /**

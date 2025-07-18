@@ -44,8 +44,58 @@ class ClaudeProvider extends BaseProvider {
     }
 
     /**
-   * Generate completion using modern Claude Messages API
-   */
+     * Generate completion using modern Claude Messages API with n8n workflow integration
+     *
+     * @param {string} prompt - The processed prompt with variables injected
+     * @param {Object} options - Configuration options for the AI request
+     * @param {string} options.model - Claude model to use (default: 'claude-3-haiku-20240307')
+     * @param {number} options.maxTokens - Maximum tokens to generate (default: 1000)
+     * @param {number} options.temperature - Response creativity (0-1, default: 0.7)
+     * @param {string} options.systemPrompt - System-level instructions for Claude
+     * @param {Array<string>} options.stopSequences - Sequences to stop generation
+     * @param {number} options.timeout - Request timeout in milliseconds
+     * @returns {Promise<Object>} Generated completion with usage metrics
+     *
+     * @example
+     * // Basic customer support response generation
+     * const prompt = `You are a professional customer service representative.
+     * Customer: John Doe (Premium Account)
+     * Issue: Cannot access premium features
+     * Please provide a helpful solution.`;
+     *
+     * const response = await claudeProvider.generateCompletion(prompt, {
+     *   temperature: 0.3,  // Lower for consistent support responses
+     *   maxTokens: 500
+     * });
+     *
+     * @example
+     * // n8n workflow pattern for dynamic content generation
+     * const templateManager = new TemplateManager();
+     * const template = await templateManager.getTemplate('content_creation/blog_post');
+     * const processedPrompt = templateManager.injectVariables(template.content, {
+     *   topic: $json.topic,
+     *   target_audience: $json.audience,
+     *   tone: "professional",
+     *   word_count: "800-1000"
+     * });
+     *
+     * const blogPost = await claudeProvider.generateCompletion(processedPrompt, {
+     *   model: 'claude-3-sonnet-20240229',  // Better for creative content
+     *   temperature: 0.8,  // Higher for creativity
+     *   maxTokens: 2000,
+     *   systemPrompt: "You are an expert content writer specializing in engaging blog posts."
+     * });
+     *
+     * @example
+     * // Advanced configuration with stop sequences
+     * const completion = await claudeProvider.generateCompletion(prompt, {
+     *   model: 'claude-3-opus-20240229',
+     *   temperature: 0.5,
+     *   maxTokens: 1500,
+     *   stopSequences: ['---END---', '\n\nHuman:'],
+     *   timeout: 45000  // Extended timeout for complex requests
+     * });
+     */
     async generateCompletion(prompt, options = {}) {
         try {
             // Check rate limit

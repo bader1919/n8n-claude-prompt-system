@@ -325,7 +325,55 @@ class ApiServer {
     }
 
     /**
-     * Generate completion
+     * Generate completion using template and variables (main n8n integration endpoint)
+     *
+     * @param {Object} req - Express request object
+     * @param {Object} req.body - Request body
+     * @param {string} req.body.template - Template key in format "category/name"
+     * @param {Object} req.body.variables - Variables to inject into template
+     * @param {string} req.body.provider - AI provider to use ('claude', 'openai', 'local')
+     * @param {Object} req.body.options - Provider-specific options
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next middleware function
+     *
+     * @example
+     * // n8n HTTP Request node configuration
+     * POST /api/generate
+     * Headers: { "x-api-key": "your-api-key", "Content-Type": "application/json" }
+     * Body: {
+     *   "template": "business_operations/customer_support_template",
+     *   "variables": {
+     *     "company_name": "{{ $env.COMPANY_NAME }}",
+     *     "customer_name": "{{ $json.customer_name }}",
+     *     "customer_issue": "{{ $json.issue_description }}",
+     *     "priority_level": "{{ $json.priority || 'Medium' }}",
+     *     "account_type": "{{ $json.account_type }}",
+     *     "tone": "professional"
+     *   },
+     *   "options": {
+     *     "temperature": 0.3,
+     *     "maxTokens": 800
+     *   }
+     * }
+     *
+     * @example
+     * // Advanced usage with custom system prompt
+     * const requestBody = {
+     *   template: "content_creation/blog_post",
+     *   variables: {
+     *     topic: req.body.topic,
+     *     target_audience: req.body.audience,
+     *     tone: "engaging",
+     *     word_count: "1000-1200"
+     *   },
+     *   provider: "claude",
+     *   options: {
+     *     model: "claude-3-sonnet-20240229",
+     *     temperature: 0.8,
+     *     maxTokens: 2000,
+     *     systemPrompt: "You are an expert content writer specializing in SEO-optimized blog posts."
+     *   }
+     * };
      */
     async generateCompletion(req, res, next) {
         try {
@@ -349,12 +397,8 @@ class ApiServer {
                 throw new ValidationError(`Template '${template}' not found`);
             }
 
-            // Replace variables in template
-            let prompt = templateData.content;
-            for (const [key, value] of Object.entries(variables)) {
-                const placeholder = `{{${key}}}`;
-                prompt = prompt.replace(new RegExp(placeholder, 'g'), value);
-            }
+            // Replace variables in template using improved injection method
+            const prompt = this.injectTemplateVariables(templateData.content, variables);
 
             // Generate completion
             const startTime = Date.now();
@@ -469,6 +513,48 @@ class ApiServer {
 
         // Global error handler
         this.app.use(this.errorHandler.expressMiddleware());
+    }
+
+    /**
+     * Inject variables into template content with n8n workflow support
+     *
+     * @param {string} templateContent - Template content with {{variable}} placeholders
+     * @param {Object} variables - Key-value pairs from n8n workflow or API request
+     * @returns {string} Processed template with variables injected
+     *
+     * @example
+     * // Basic n8n variable injection
+     * const template = "Hello {{customer_name}}, regarding {{issue_type}}...";
+     * const variables = {
+     *   customer_name: $json.customer_name,
+     *   issue_type: $json.issue_category
+     * };
+     * const result = this.injectTemplateVariables(template, variables);
+     *
+     * @example
+     * // Advanced variable injection with environment variables
+     * const variables = {
+     *   company_name: process.env.COMPANY_NAME,
+     *   customer_tier: req.body.customer_tier || 'Standard',
+     *   urgency: req.body.priority === 'high' ? 'urgent' : 'normal'
+     * };
+     */
+    injectTemplateVariables(templateContent, variables = {}) {
+        if (!templateContent || typeof templateContent !== 'string') {
+            return templateContent || '';
+        }
+
+        let result = templateContent;
+
+        // Replace variables with proper escaping for special regex characters
+        for (const [key, value] of Object.entries(variables)) {
+            const placeholder = `{{${key}}}`;
+            const safeValue = value !== null && value !== undefined ? String(value) : '';
+            const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            result = result.replace(new RegExp(escapedPlaceholder, 'g'), safeValue);
+        }
+
+        return result;
     }
 
     /**

@@ -65,11 +65,15 @@ jspm_packages/
 .env
 
 # IDE files
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# VSCode - exclude personal settings but allow shared development configs
+.vscode/
+!.vscode/settings.json
+!.vscode/*.code-snippets
 
 # OS generated files
 .DS_Store
@@ -90,6 +94,9 @@ config/template-cache.json
 # Temporary files
 tmp/
 temp/
+
+# Test files for development
+copilot-test-examples.js
 
 # Build artifacts
 dist/

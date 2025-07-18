@@ -117,7 +117,7 @@ class BaseProvider {
         try {
             // Override in subclasses for specific health checks
             return true;
-        } catch (error) {
+        } catch (error) { // eslint-disable-line no-unreachable
             return false;
         }
     }
