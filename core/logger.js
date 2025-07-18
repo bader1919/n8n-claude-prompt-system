@@ -450,10 +450,12 @@ class Logger {
 // Create singleton instance
 const logger = new Logger();
 
-// Setup periodic cleanup
-setInterval(() => {
-    logger.cleanupCorrelations();
-}, 60000); // Every minute
+// Setup periodic cleanup (not in test environment)
+if (process.env.NODE_ENV !== 'test') {
+    setInterval(() => {
+        logger.cleanupCorrelations();
+    }, 60000); // Every minute
+}
 
 module.exports = Logger;
 module.exports.logger = logger;
