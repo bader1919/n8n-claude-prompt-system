@@ -1,0 +1,263 @@
+{
+  "name": "Error Handler with Retry Logic",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Error Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "error-webhook-node",
+      "webhookId": "error-handler"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error Analysis and Classification\nconst errorData = $input.all()[0].json;\n\n// Initialize error context\nconst errorContext = {\n  execution_id: errorData.execution_id || `error_${Date.now()}`,\n  original_request: errorData.original_request || {},\n  error_info: errorData.error || {},\n  timestamp: new Date().toISOString(),\n  retry_count: errorData.retry_count || 0\n};\n\n// Classify error type\nfunction classifyError(error) {\n  const message = error.message || '';\n  const statusCode = error.statusCode || error.status;\n  \n  if (statusCode === 401 || statusCode === 403) {\n    return {\n      type: 'authentication_error',\n      severity: 'critical',\n      retryable: false,\n      suggested_action: 'Check API key configuration'\n    };\n  }\n  \n  if (statusCode === 429) {\n    return {\n      type: 'rate_limit_error', \n      severity: 'high',\n      retryable: true,\n      retry_delay: 60000, // 1 minute\n      suggested_action: 'Implement exponential backoff'\n    };\n  }\n  \n  if (statusCode >= 500) {\n    return {\n      type: 'server_error',\n      severity: 'high', \n      retryable: true,\n      retry_delay: 5000, // 5 seconds\n      suggested_action: 'Retry with same or different provider'\n    };\n  }\n  \n  if (message.includes('timeout')) {\n    return {\n      type: 'timeout_error',\n      severity: 'medium',\n      retryable: true, \n      retry_delay: 2000,\n      suggested_action: 'Increase timeout or try different model'\n    };\n  }\n  \n  if (message.includes('token') && message.includes('limit')) {\n    return {\n      type: 'token_limit_error',\n      severity: 'medium',\n      retryable: true,\n      suggested_action: 'Reduce prompt length or use different model'\n    };\n  }\n  \n  if (message.includes('template') || message.includes('variable')) {\n    return {\n      type: 'template_error',\n      severity: 'low',\n      retryable: false,\n      suggested_action: 'Fix template or variable issues'\n    };\n  }\n  \n  // Default classification\n  return {\n    type: 'unknown_error',\n    severity: 'medium',\n    retryable: true,\n    retry_delay: 3000,\n    suggested_action: 'Review error details and retry'\n  };\n}\n\nconst classification = classifyError(errorContext.error_info);\n\n// Determine retry strategy\nconst maxRetries = 3;\nconst shouldRetry = classification.retryable && errorContext.retry_count < maxRetries;\n\n// Provider fallback logic\nconst originalProvider = errorContext.original_request.llm_provider || 'anthropic';\nconst providerFallbacks = {\n  'anthropic': ['openai', 'groq'],\n  'openai': ['anthropic', 'groq'], \n  'groq': ['openai', 'anthropic'],\n  'ollama': ['openai', 'anthropic'],\n  'lmstudio': ['openai', 'anthropic']\n};\n\nlet fallbackProvider = null;\nif (shouldRetry && classification.type === 'server_error') {\n  const fallbacks = providerFallbacks[originalProvider] || [];\n  if (fallbacks.length > 0) {\n    fallbackProvider = fallbacks[errorContext.retry_count % fallbacks.length];\n  }\n}\n\nreturn {\n  error_context: errorContext,\n  classification: classification,\n  retry_strategy: {\n    should_retry: shouldRetry,\n    retry_count: errorContext.retry_count,\n    max_retries: maxRetries,\n    retry_delay: classification.retry_delay || 3000,\n    fallback_provider: fallbackProvider,\n    exponential_backoff: Math.pow(2, errorContext.retry_count) * 1000\n  },\n  next_action: shouldRetry ? 'retry' : 'fail'\n};"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "retry_condition",
+              "leftValue": "={{ $json.next_action }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Should Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "retry-condition-node"
+    },
+    {
+      "parameters": {
+        "amount": "={{ $node['Error Classifier'].json.retry_strategy.retry_delay }}",
+        "unit": "ms"
+      },
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "id": "wait-before-retry-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Retry Request\nconst errorData = $node['Error Classifier'].json;\nconst originalRequest = errorData.error_context.original_request;\nconst retryStrategy = errorData.retry_strategy;\n\n// Build retry request\nconst retryRequest = {\n  ...originalRequest,\n  retry_count: retryStrategy.retry_count + 1,\n  retry_metadata: {\n    original_error: errorData.classification,\n    retry_attempt: retryStrategy.retry_count + 1,\n    retry_timestamp: new Date().toISOString(),\n    fallback_provider_used: retryStrategy.fallback_provider\n  }\n};\n\n// Use fallback provider if available\nif (retryStrategy.fallback_provider) {\n  retryRequest.llm_provider = retryStrategy.fallback_provider;\n  console.log(`Retrying with fallback provider: ${retryStrategy.fallback_provider}`);\n}\n\n// Adjust parameters based on error type\nif (errorData.classification.type === 'token_limit_error') {\n  // Reduce max_tokens by 20%\n  retryRequest.max_tokens = Math.floor((retryRequest.max_tokens || 1000) * 0.8);\n}\n\nif (errorData.classification.type === 'timeout_error') {\n  // Use faster model if available\n  const fastModels = {\n    'anthropic': 'claude-3-haiku-20240307',\n    'openai': 'gpt-3.5-turbo',\n    'groq': 'mixtral-8x7b-32768'\n  };\n  const provider = retryRequest.llm_provider;\n  if (fastModels[provider]) {\n    retryRequest.model = fastModels[provider];\n  }\n}\n\nreturn retryRequest;"
+    },
+    {
+      "parameters": {
+        "url": "https://your-n8n-instance.com/webhook/universal-llm-processor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "Retry LLM Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 200],
+      "id": "retry-llm-call-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log Error to Analytics\nconst errorData = $node['Error Classifier'].json;\nconst errorContext = errorData.error_context;\nconst classification = errorData.classification;\n\n// Create error log entry\nconst errorLog = {\n  log_id: `error_${errorContext.execution_id}_${Date.now()}`,\n  timestamp: new Date().toISOString(),\n  execution_id: errorContext.execution_id,\n  error_type: classification.type,\n  error_severity: classification.severity,\n  error_message: errorContext.error_info.message,\n  error_code: errorContext.error_info.statusCode || errorContext.error_info.status,\n  template_name: errorContext.original_request.template_name,\n  template_category: errorContext.original_request.template_category,\n  llm_provider: errorContext.original_request.llm_provider,\n  model: errorContext.original_request.model,\n  retry_count: errorContext.retry_count,\n  retryable: classification.retryable,\n  suggested_action: classification.suggested_action,\n  user_context: {\n    variables_count: Object.keys(errorContext.original_request.variables || {}).length,\n    prompt_estimated_length: errorContext.original_request.prompt_length\n  },\n  system_context: {\n    workflow_version: '2.0.0',\n    n8n_instance: 'production',\n    error_handler_version: '1.0.0'\n  }\n};\n\n// Determine alert level\nlet alertLevel = 'info';\nif (classification.severity === 'critical') {\n  alertLevel = 'critical';\n} else if (classification.severity === 'high') {\n  alertLevel = 'warning';\n} else if (classification.type === 'rate_limit_error') {\n  alertLevel = 'warning';\n}\n\nreturn {\n  error_log: errorLog,\n  alert_level: alertLevel,\n  should_notify: ['critical', 'warning'].includes(alertLevel)\n};"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "notification_condition",
+              "leftValue": "={{ $json.should_notify }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Should Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 400],
+      "id": "notification-condition-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Send Error Notification\nconst logData = $node['Log Error'].json;\nconst errorLog = logData.error_log;\n\n// Build notification message\nconst message = `🚨 LLM Processing Error Alert\n\n` +\n  `**Error Type:** ${errorLog.error_type}\n` +\n  `**Severity:** ${errorLog.error_severity}\n` +\n  `**Template:** ${errorLog.template_name}\n` +\n  `**Provider:** ${errorLog.llm_provider}\n` +\n  `**Error:** ${errorLog.error_message}\n` +\n  `**Execution ID:** ${errorLog.execution_id}\n` +\n  `**Timestamp:** ${errorLog.timestamp}\n` +\n  `**Suggested Action:** ${errorLog.suggested_action}\n`;
+
+// Return notification payload
+return {
+  notification: {
+    title: `LLM Error: ${errorLog.error_type}`,
+    message: message,
+    severity: errorLog.error_severity,
+    alert_level: logData.alert_level,
+    execution_id: errorLog.execution_id,
+    timestamp: errorLog.timestamp
+  },
+  channels: ['slack', 'email'], // Configure based on your setup
+  error_log: errorLog
+};"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final Error Response\nconst errorData = $node['Error Classifier'].json;\nconst logData = $node['Log Error'].json;\n\n// Build final error response\nconst finalResponse = {\n  success: false,\n  error: {\n    execution_id: errorData.error_context.execution_id,\n    type: errorData.classification.type,\n    severity: errorData.classification.severity,\n    message: errorData.error_context.error_info.message,\n    suggested_action: errorData.classification.suggested_action,\n    retry_count: errorData.error_context.retry_count,\n    retryable: errorData.classification.retryable,\n    timestamp: new Date().toISOString()\n  },\n  metadata: {\n    template_name: errorData.error_context.original_request.template_name,\n    llm_provider: errorData.error_context.original_request.llm_provider,\n    error_log_id: logData.error_log.log_id,\n    alert_sent: logData.should_notify\n  },\n  troubleshooting: {\n    common_solutions: {\n      'authentication_error': 'Verify API key is correct and has proper permissions',\n      'rate_limit_error': 'Implement exponential backoff or upgrade plan', \n      'server_error': 'Provider experiencing issues, try again later',\n      'timeout_error': 'Increase timeout or use faster model',\n      'token_limit_error': 'Reduce prompt length or use model with higher limits',\n      'template_error': 'Check template syntax and required variables'\n    },\n    provider_status_pages: {\n      'anthropic': 'https://status.anthropic.com',\n      'openai': 'https://status.openai.com',\n      'groq': 'https://status.groq.com'\n    }\n  }\n};\n\nreturn finalResponse;"
+    }
+  ],
+  "connections": {
+    "Error Webhook": {
+      "main": [
+        [
+          {
+            "node": "Error Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Classifier": {
+      "main": [
+        [
+          {
+            "node": "Should Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry": {
+      "main": [
+        [
+          {
+            "node": "Retry LLM Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "Should Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification": {
+      "main": [
+        [
+          {
+            "node": "Final Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Bahrain"
+  },
+  "tags": [
+    {
+      "name": "Error Handling",
+      "id": "error-handling"
+    },
+    {
+      "name": "Retry Logic",
+      "id": "retry-logic"
+    },
+    {
+      "name": "Monitoring",
+      "id": "monitoring"
+    }
+  ]
+}
