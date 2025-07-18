@@ -1,0 +1,198 @@
+{
+  "registry_version": "1.0.0",
+  "last_updated": "2025-07-18T00:00:00Z",
+  "templates": {
+    "customer_support_template": {
+      "name": "Customer Support Template",
+      "description": "Professional customer service response generator with issue resolution",
+      "category": "business_operations",
+      "current_version": "2.1.0",
+      "versions": {
+        "2.1.0": {
+          "file_path": "templates/business_operations/customer_support_template.txt",
+          "created_date": "2025-07-18T00:00:00Z",
+          "author": "bader1919",
+          "changelog": "Added advanced error handling and multi-tone support",
+          "status": "active",
+          "compatibility": ["anthropic", "openai", "ollama"],
+          "estimated_tokens": 350,
+          "quality_score": 9.2
+        },
+        "2.0.0": {
+          "file_path": "templates/business_operations/customer_support_template_v2.0.0.txt",
+          "created_date": "2025-06-15T00:00:00Z",
+          "author": "bader1919",
+          "changelog": "Enhanced variable validation and response structure",
+          "status": "deprecated",
+          "compatibility": ["anthropic", "openai"],
+          "estimated_tokens": 320,
+          "quality_score": 8.5
+        }
+      },
+      "usage_stats": {
+        "total_executions": 1247,
+        "success_rate": 96.8,
+        "avg_response_time": 3.2,
+        "cost_per_execution": 0.0012
+      },
+      "tags": ["customer-service", "support", "business"],
+      "required_variables": [
+        "company_name",
+        "customer_context", 
+        "customer_issue",
+        "priority_level",
+        "account_type",
+        "tone",
+        "response_time",
+        "issue_category"
+      ],
+      "optional_variables": [
+        "company_policy",
+        "interaction_history",
+        "additional_notes",
+        "ticket_system"
+      ]
+    },
+    "data_analysis_template": {
+      "name": "Data Analysis Template",
+      "description": "Comprehensive data analysis and insights generation for business metrics",
+      "category": "business_operations",
+      "current_version": "1.5.0",
+      "versions": {
+        "1.5.0": {
+          "file_path": "templates/business_operations/data_analysis_template.txt",
+          "created_date": "2025-07-10T00:00:00Z",
+          "author": "bader1919",
+          "changelog": "Added visualization recommendations and risk assessment",
+          "status": "active",
+          "compatibility": ["anthropic", "openai", "groq"],
+          "estimated_tokens": 450,
+          "quality_score": 9.0
+        }
+      },
+      "usage_stats": {
+        "total_executions": 892,
+        "success_rate": 98.1,
+        "avg_response_time": 8.7,
+        "cost_per_execution": 0.0018
+      },
+      "tags": ["analytics", "business-intelligence", "data"],
+      "required_variables": [
+        "analysis_domain",
+        "dataset_name",
+        "analysis_period",
+        "key_metrics",
+        "business_objective",
+        "focus_area",
+        "comparison_type",
+        "stakeholder_level",
+        "urgency_level",
+        "analysis_type",
+        "trend_count",
+        "metric_categories",
+        "benchmark_type",
+        "anomaly_threshold",
+        "recommendation_count",
+        "summary_length",
+        "chart_types",
+        "risk_categories",
+        "timeline_scope"
+      ],
+      "optional_variables": [
+        "domain_specific_notes"
+      ]
+    },
+    "blog_post_template": {
+      "name": "Blog Post Template",
+      "description": "SEO-optimized content creation for marketing and thought leadership",
+      "category": "content_creation",
+      "current_version": "1.3.0",
+      "versions": {
+        "1.3.0": {
+          "file_path": "templates/content_creation/blog_post_template.txt",
+          "created_date": "2025-07-05T00:00:00Z",
+          "author": "bader1919",
+          "changelog": "Enhanced SEO optimization and content structure",
+          "status": "active",
+          "compatibility": ["anthropic", "openai"],
+          "estimated_tokens": 520,
+          "quality_score": 8.8
+        }
+      },
+      "usage_stats": {
+        "total_executions": 634,
+        "success_rate": 94.2,
+        "avg_response_time": 12.4,
+        "cost_per_execution": 0.0022
+      },
+      "tags": ["content", "seo", "marketing", "blog"],
+      "required_variables": [
+        "industry_vertical",
+        "blog_topic",
+        "target_audience",
+        "content_objective",
+        "brand_tone",
+        "target_word_count",
+        "primary_keyword",
+        "secondary_keywords",
+        "search_intent",
+        "content_pillar",
+        "brand_voice",
+        "cta_type",
+        "pain_point",
+        "section_count",
+        "key_subtopics",
+        "example_count"
+      ],
+      "optional_variables": [
+        "style_preferences",
+        "compliance_notes",
+        "data_sources",
+        "expert_perspectives",
+        "visual_types",
+        "internal_link_targets",
+        "external_sources",
+        "special_instructions"
+      ]
+    }
+  },
+  "categories": {
+    "business_operations": {
+      "description": "Templates for business processes, customer service, and operations",
+      "color": "#007ACC",
+      "icon": "briefcase"
+    },
+    "content_creation": {
+      "description": "Templates for marketing content, blogs, and creative writing",
+      "color": "#FF6B6B", 
+      "icon": "edit"
+    },
+    "technical": {
+      "description": "Templates for code documentation, technical writing, and development",
+      "color": "#4ECDC4",
+      "icon": "code"
+    },
+    "analytics": {
+      "description": "Templates for data analysis, reporting, and insights generation",
+      "color": "#45B7D1",
+      "icon": "chart-bar"
+    }
+  },
+  "discovery_settings": {
+    "auto_scan_enabled": true,
+    "scan_interval_hours": 24,
+    "template_directories": [
+      "templates/business_operations/",
+      "templates/content_creation/",
+      "templates/technical/",
+      "templates/analytics/"
+    ],
+    "version_pattern": "_v{major}.{minor}.{patch}",
+    "quality_threshold": 7.0,
+    "deprecation_policy": {
+      "keep_versions": 3,
+      "deprecate_after_days": 90,
+      "delete_after_days": 365
+    }
+  }
+}
