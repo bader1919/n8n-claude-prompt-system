@@ -1,0 +1,260 @@
+{
+  "name": "Universal LLM Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "trigger-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input Validation and Configuration Loading\nconst inputData = $input.all()[0].json;\n\n// Validate required input fields\nconst requiredFields = ['template_name', 'template_category', 'variables'];\nconst missingFields = requiredFields.filter(field => !inputData[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n}\n\n// Extract configuration\nconst config = {\n  template_name: inputData.template_name,\n  template_category: inputData.template_category,\n  variables: inputData.variables || {},\n  llm_provider: inputData.llm_provider || 'anthropic',\n  model: inputData.model || null,\n  max_tokens: inputData.max_tokens || 1000,\n  template_version: inputData.template_version || 'latest'\n};\n\n// Add execution metadata\nconfig.execution_id = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\nconfig.start_time = new Date().toISOString();\n\nreturn {\n  config: config,\n  step: 'input_validation',\n  status: 'success'\n};"
+      },
+      "name": "Input Validator",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "input-validator-node"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/config/template-registry.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Load Template Registry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "id": "load-registry-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template Discovery and Version Resolution\nconst config = $node['Input Validator'].json.config;\nconst registry = $node['Load Template Registry'].json;\n\n// Find template in registry\nconst templateName = config.template_name;\nconst templateInfo = registry.templates[templateName];\n\nif (!templateInfo) {\n  throw new Error(`Template '${templateName}' not found in registry`);\n}\n\n// Resolve version\nlet targetVersion = config.template_version;\nif (targetVersion === 'latest') {\n  targetVersion = templateInfo.current_version;\n}\n\nconst versionInfo = templateInfo.versions[targetVersion];\nif (!versionInfo) {\n  throw new Error(`Version '${targetVersion}' not found for template '${templateName}'`);\n}\n\n// Check compatibility with selected LLM provider\nif (versionInfo.compatibility && !versionInfo.compatibility.includes(config.llm_provider)) {\n  console.warn(`Template version ${targetVersion} may not be fully compatible with ${config.llm_provider}`);\n}\n\n// Build template URL\nconst templateUrl = `https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/${versionInfo.file_path}`;\n\nreturn {\n  config: config,\n  template_info: templateInfo,\n  version_info: versionInfo,\n  template_url: templateUrl,\n  step: 'template_discovery',\n  status: 'success'\n};"
+      },
+      "name": "Template Discovery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "template-discovery-node"
+    },
+    {
+      "parameters": {
+        "url": "={{ $node['Template Discovery'].json.template_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Fetch Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 300],
+      "id": "fetch-template-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template Processing with Advanced Variable Validation\nconst templateContent = $node['Fetch Template'].json;\nconst config = $node['Template Discovery'].json.config;\nconst templateInfo = $node['Template Discovery'].json.template_info;\nconst variables = config.variables;\n\ntry {\n  // Extract all variables from template\n  const variablePattern = /\\{\\{(\\w+)\\}\\}/g;\n  const foundVars = [];\n  let match;\n  \n  while ((match = variablePattern.exec(templateContent)) !== null) {\n    if (!foundVars.includes(match[1])) {\n      foundVars.push(match[1]);\n    }\n  }\n  \n  // Cross-check with registry required variables\n  const requiredVars = templateInfo.required_variables || [];\n  const optionalVars = templateInfo.optional_variables || [];\n  \n  // Validate required variables\n  const missingRequired = requiredVars.filter(varName => \n    !variables.hasOwnProperty(varName) || \n    variables[varName] === null || \n    variables[varName] === ''\n  );\n  \n  if (missingRequired.length > 0) {\n    throw new Error(`Missing required variables: ${missingRequired.join(', ')}`);\n  }\n  \n  // Check for unexpected variables\n  const allowedVars = [...requiredVars, ...optionalVars];\n  const unexpectedVars = Object.keys(variables).filter(varName => \n    !allowedVars.includes(varName)\n  );\n  \n  if (unexpectedVars.length > 0) {\n    console.warn(`Unexpected variables provided: ${unexpectedVars.join(', ')}`);\n  }\n  \n  // Process template with variables\n  let processedPrompt = templateContent;\n  for (const [key, value] of Object.entries(variables)) {\n    const regex = new RegExp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g');\n    processedPrompt = processedPrompt.replace(regex, String(value));\n  }\n  \n  // Check for unresolved variables\n  const unresolvedVars = processedPrompt.match(/\\{\\{\\w+\\}\}/g);\n  if (unresolvedVars) {\n    throw new Error(`Unresolved variables found: ${unresolvedVars.join(', ')}`);\n  }\n  \n  return {\n    config: config,\n    processed_prompt: processedPrompt,\n    template_info: templateInfo,\n    processing_metadata: {\n      variables_used: Object.keys(variables),\n      variables_count: Object.keys(variables).length,\n      prompt_length: processedPrompt.length,\n      estimated_tokens: Math.ceil(processedPrompt.length / 4),\n      processing_time: new Date().toISOString()\n    },\n    step: 'template_processing',\n    status: 'success'\n  };\n  \n} catch (error) {\n  return {\n    config: config,\n    step: 'template_processing',\n    status: 'error',\n    error: {\n      message: error.message,\n      type: 'template_processing_error',\n      timestamp: new Date().toISOString()\n    }\n  };\n}"
+      },
+      "name": "Process Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "process-template-node"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/config/llm-providers.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Load LLM Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "id": "load-llm-config-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// LLM Provider Configuration and Request Building\nconst processedData = $node['Process Template'].json;\nconst llmConfig = $node['Load LLM Config'].json;\n\n// Check for template processing errors\nif (processedData.status === 'error') {\n  throw new Error(`Template processing failed: ${processedData.error.message}`);\n}\n\nconst config = processedData.config;\nconst prompt = processedData.processed_prompt;\n\n// Get provider configuration\nconst providerName = config.llm_provider;\nconst providerConfig = llmConfig.providers[providerName];\n\nif (!providerConfig) {\n  throw new Error(`LLM provider '${providerName}' not supported. Available: ${Object.keys(llmConfig.providers).join(', ')}`);\n}\n\n// Select model\nlet selectedModel = config.model;\nif (!selectedModel) {\n  // Use first available model for the provider\n  selectedModel = Object.keys(providerConfig.models)[0];\n}\n\nconst modelConfig = providerConfig.models[selectedModel];\nif (!modelConfig) {\n  throw new Error(`Model '${selectedModel}' not available for provider '${providerName}'`);\n}\n\n// Build request configuration\nconst maxTokens = Math.min(config.max_tokens, modelConfig.max_tokens);\n\n// Clone body template and replace variables\nconst requestBody = JSON.parse(JSON.stringify(providerConfig.request_format.body_template));\nrequestBody.model = requestBody.model.replace('{{model}}', selectedModel);\nrequestBody.max_tokens = parseInt(String(requestBody.max_tokens).replace('{{max_tokens}}', maxTokens));\n\n// Handle different prompt formats\nif (requestBody.prompt) {\n  requestBody.prompt = requestBody.prompt.replace('{{prompt}}', prompt);\n} else if (requestBody.messages) {\n  requestBody.messages[0].content = requestBody.messages[0].content.replace('{{prompt}}', prompt);\n}\n\n// Build headers\nconst headers = { ...providerConfig.request_format.headers };\n\n// Add authentication\nif (providerConfig.auth_type === 'header') {\n  headers[providerConfig.auth_header] = `{{ $env.${providerName.toUpperCase()}_API_KEY }}`;\n} else if (providerConfig.auth_type === 'bearer') {\n  headers[providerConfig.auth_header] = `Bearer {{ $env.${providerName.toUpperCase()}_API_KEY }}`;\n}\n\nreturn {\n  config: config,\n  llm_request: {\n    url: providerConfig.api_endpoint,\n    method: providerConfig.request_format.method,\n    headers: headers,\n    body: requestBody\n  },\n  provider_config: providerConfig,\n  model_config: modelConfig,\n  processing_metadata: processedData.processing_metadata,\n  step: 'llm_preparation',\n  status: 'success'\n};"
+      },
+      "name": "LLM Request Builder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "id": "llm-request-builder-node"
+    },
+    {
+      "parameters": {
+        "url": "={{ $node['LLM Request Builder'].json.llm_request.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": "={{ Object.entries($node['LLM Request Builder'].json.llm_request.headers).map(([key, value]) => ({ name: key, value: value })) }}"
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($node['LLM Request Builder'].json.llm_request.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "LLM API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2000, 300],
+      "id": "llm-api-call-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Response Processing with Error Handling and Metrics\nconst requestData = $node['LLM Request Builder'].json;\nconst apiResponse = $node['LLM API Call'].json;\n\ntry {\n  const config = requestData.config;\n  const providerConfig = requestData.provider_config;\n  const modelConfig = requestData.model_config;\n  \n  // Extract response content based on provider configuration\n  let responseContent = '';\n  const responsePath = providerConfig.response_path;\n  \n  if (responsePath.includes('[')) {\n    // Handle array notation like \"content[0].text\"\n    const parts = responsePath.split(/[\\[\\]\\.]/).filter(p => p);\n    let current = apiResponse;\n    \n    for (const part of parts) {\n      if (isNaN(part)) {\n        current = current[part];\n      } else {\n        current = current[parseInt(part)];\n      }\n      if (current === undefined) break;\n    }\n    responseContent = current || 'No response content';\n  } else {\n    // Handle simple dot notation\n    const parts = responsePath.split('.');\n    let current = apiResponse;\n    for (const part of parts) {\n      current = current[part];\n      if (current === undefined) break;\n    }\n    responseContent = current || 'No response content';\n  }\n  \n  // Extract usage information\n  let usage = {};\n  if (providerConfig.usage_path) {\n    const usagePath = providerConfig.usage_path;\n    const usageParts = usagePath.split('.');\n    let usageData = apiResponse;\n    for (const part of usageParts) {\n      usageData = usageData[part];\n      if (usageData === undefined) break;\n    }\n    usage = usageData || {};\n  }\n  \n  // Calculate costs\n  const tokensUsed = usage.total_tokens || usage.prompt_tokens + usage.completion_tokens || 0;\n  const estimatedCost = (tokensUsed / 1000) * modelConfig.cost_per_1k_tokens;\n  \n  // Build comprehensive response\n  const response = {\n    llm_response: responseContent,\n    execution_metadata: {\n      execution_id: config.execution_id,\n      template_name: config.template_name,\n      template_version: requestData.processing_metadata.template_version,\n      llm_provider: config.llm_provider,\n      model: requestData.llm_request.body.model,\n      start_time: config.start_time,\n      end_time: new Date().toISOString(),\n      processing_duration: Date.now() - new Date(config.start_time).getTime(),\n      success: true\n    },\n    usage_metrics: {\n      tokens_used: tokensUsed,\n      prompt_tokens: usage.prompt_tokens || 0,\n      completion_tokens: usage.completion_tokens || 0,\n      estimated_cost_usd: estimatedCost,\n      cost_per_token: modelConfig.cost_per_1k_tokens / 1000\n    },\n    template_info: {\n      name: config.template_name,\n      category: config.template_category,\n      variables_used: requestData.processing_metadata.variables_used,\n      prompt_length: requestData.processing_metadata.prompt_length,\n      estimated_tokens: requestData.processing_metadata.estimated_tokens\n    },\n    quality_metrics: {\n      response_length: responseContent.length,\n      response_quality_score: null, // To be calculated separately\n      provider_response_time: Date.now() - new Date(config.start_time).getTime()\n    }\n  };\n  \n  return response;\n  \n} catch (error) {\n  return {\n    execution_metadata: {\n      execution_id: requestData.config.execution_id,\n      template_name: requestData.config.template_name,\n      llm_provider: requestData.config.llm_provider,\n      start_time: requestData.config.start_time,\n      end_time: new Date().toISOString(),\n      success: false\n    },\n    error: {\n      message: error.message,\n      type: 'response_processing_error',\n      timestamp: new Date().toISOString(),\n      api_response: apiResponse\n    }\n  };\n}"
+      },
+      "name": "Response Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300],
+      "id": "response-processor-node"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Input Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Validator": {
+      "main": [
+        [
+          {
+            "node": "Load Template Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Template Registry": {
+      "main": [
+        [
+          {
+            "node": "Template Discovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template Discovery": {
+      "main": [
+        [
+          {
+            "node": "Fetch Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Template": {
+      "main": [
+        [
+          {
+            "node": "Process Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Template": {
+      "main": [
+        [
+          {
+            "node": "Load LLM Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load LLM Config": {
+      "main": [
+        [
+          {
+            "node": "LLM Request Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Request Builder": {
+      "main": [
+        [
+          {
+            "node": "LLM API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM API Call": {
+      "main": [
+        [
+          {
+            "node": "Response Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "timezone": "Asia/Bahrain"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Universal LLM",
+      "id": "universal-llm"
+    },
+    {
+      "name": "Multi-Provider",
+      "id": "multi-provider"
+    },
+    {
+      "name": "Template System",
+      "id": "template-system"
+    }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
