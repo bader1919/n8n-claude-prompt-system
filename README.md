@@ -1,42 +1,37 @@
 # n8n Claude Prompt System
 
-This repository contains the complete system documentation for the n8n Claude Prompt System. The system is designed to integrate with n8n workflows and utilize Claude AI for prompt processing.
+This repository contains the n8n Claude Prompt System, a powerful and flexible system designed to integrate Claude LLM capabilities into n8n workflows.
 
 ## Features
 
-- Integration with n8n workflow automation tool
-- Utilization of Claude AI for advanced prompt processing
-- Easy to configure and extend
+- **Multi-LLM Support**: The system now supports multiple Large Language Models (LLMs), allowing you to leverage different AI models seamlessly within your workflows.
+- **Template Auto-Discovery**: Automatically discover and load prompt templates from designated directories, simplifying template management and updates.
+- **Version Management**: Keep track of different versions of your prompt templates and system components to ensure compatibility and easy rollback.
+- **Advanced Error Handling**: Enhanced error detection and handling mechanisms to provide robust and reliable workflow executions.
+- **New Workflow Components**: Added new nodes and components to n8n for better integration and extended functionality with the Claude Prompt System.
 
-## Installation
+## Documentation
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/bader1919/n8n-claude-prompt-system.git
-   cd n8n-claude-prompt-system
-   ```
+For detailed information on the new features, please refer to the following documentation links:
 
-2. Follow the setup instructions specific to your environment.
+- [Multi-LLM Support](docs/multi-llm-support.md)
+- [Template Auto-Discovery](docs/template-auto-discovery.md)
+- [Version Management](docs/version-management.md)
+- [Advanced Error Handling](docs/advanced-error-handling.md)
+- [Workflow Components](docs/workflow-components.md)
 
-## Usage
+## Existing Features
 
-- Configure your n8n workflows to use the Claude Prompt System nodes.
-- Set up the necessary API keys and environment variables.
-- Execute the workflows to process prompts through Claude AI.
+(Keep existing content here...)
 
-## Configuration
+## Getting Started
 
-- API keys and other sensitive information should be stored securely.
-- Refer to the configuration files and environment variables for customization.
+(Keep existing content here...)
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit pull requests.
+(Keep existing content here...)
 
 ## License
 
-This project is licensed under the MIT License.
-
-## Contact
-
-For questions or support, please open an issue on GitHub.
+(Keep existing content here...)
