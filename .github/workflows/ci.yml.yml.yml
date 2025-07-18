@@ -112,7 +112,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        push: true
+        push: false
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/n8n-claude-prompt-system:latest
           ${{ secrets.DOCKER_USERNAME }}/n8n-claude-prompt-system:${{ github.sha }}
