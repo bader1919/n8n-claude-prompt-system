@@ -7,17 +7,20 @@
  * - Secure error message handling
  * - Template injection protection
  * - Request validation middleware
- * - Logging and monitoring
+ * - Integrated logging and monitoring
  *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
+
+const { logger } = require('./logger');
 
 class ErrorHandler {
     constructor(options = {}) {
         this.logLevel = options.logLevel || 'error';
         this.includeStackTrace = options.includeStackTrace || false;
         this.sanitizeErrors = options.sanitizeErrors !== false; // Default to true
+        this.monitoring = options.monitoring || null;
     }
 
     /**
@@ -59,26 +62,55 @@ class ErrorHandler {
 
         if (!variables || typeof variables !== 'object') {
             errors.push('Variables must be a valid object');
+            logger.security('Template validation failed: Invalid variables object', {
+                eventType: 'input_validation_failure',
+                reason: 'variables_not_object'
+            });
             return errors;
         }
 
         for (const [key, value] of Object.entries(variables)) {
             // Validate key format
             if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
-                errors.push(`Invalid variable name: ${key}. Must be alphanumeric with underscores.`);
+                const error = `Invalid variable name: ${key}. Must be alphanumeric with underscores.`;
+                errors.push(error);
+                logger.security('Template validation failed: Invalid variable name', {
+                    eventType: 'input_validation_failure',
+                    variableName: key,
+                    reason: 'invalid_variable_name'
+                });
             }
 
             // Validate value
             if (typeof value === 'string') {
                 if (value.length > 10000) {
-                    errors.push(`Variable ${key} exceeds maximum length of 10000 characters`);
+                    const error = `Variable ${key} exceeds maximum length of 10000 characters`;
+                    errors.push(error);
+                    logger.security('Template validation failed: Variable too long', {
+                        eventType: 'input_validation_failure',
+                        variableName: key,
+                        valueLength: value.length,
+                        reason: 'variable_too_long'
+                    });
                 }
 
                 // Check for potential injection patterns
                 if (this.containsSuspiciousPatterns(value)) {
-                    errors.push(`Variable ${key} contains potentially unsafe content`);
+                    const error = `Variable ${key} contains potentially unsafe content`;
+                    errors.push(error);
+                    logger.security('Template validation failed: Suspicious patterns detected', {
+                        eventType: 'input_validation_failure',
+                        variableName: key,
+                        reason: 'suspicious_patterns'
+                    });
                 }
             }
+        }
+
+        if (errors.length === 0) {
+            logger.debug('Template variables validation passed', {
+                variableCount: Object.keys(variables).length
+            });
         }
 
         return errors;
@@ -135,19 +167,37 @@ class ErrorHandler {
         const timestamp = new Date().toISOString();
         const errorId = this.generateErrorId();
 
-        // Log full error details internally
-        const logEntry = {
+        // Log full error details internally using Winston logger
+        logger.error('Application Error', error, {
             errorId,
-            timestamp,
-            message: error.message,
-            stack: error.stack,
             url: req?.url,
             method: req?.method,
             userAgent: req?.headers['user-agent'],
-            ip: req?.ip
-        };
+            ip: req?.ip,
+            correlationId: req?.correlationId
+        });
 
-        this.logError(logEntry);
+        // Track security events if relevant
+        if (this.monitoring) {
+            if (error.name === 'ValidationError') {
+                this.monitoring.trackSecurityEvent('input_validation_failure', {
+                    errorId,
+                    errorType: error.name
+                });
+            } else if (error.name === 'AuthenticationError') {
+                this.monitoring.trackSecurityEvent('auth_failure', {
+                    errorId,
+                    errorType: error.name,
+                    ip: req?.ip
+                });
+            } else if (error.name === 'RateLimitError') {
+                this.monitoring.trackSecurityEvent('rate_limit', {
+                    errorId,
+                    errorType: error.name,
+                    ip: req?.ip
+                });
+            }
+        }
 
         // Return sanitized error for client
         return this.sanitizeErrorResponse(error, errorId);
@@ -203,26 +253,11 @@ class ErrorHandler {
     }
 
     /**
-     * Log error with appropriate level
+     * Log error with appropriate level (deprecated - using Winston logger now)
      */
     logError(logEntry) {
-        const logMessage = JSON.stringify(logEntry, null, 2);
-
-        switch (this.logLevel) {
-        case 'debug':
-            console.debug(`[DEBUG] ${logMessage}`);
-            break;
-        case 'info':
-            console.info(`[INFO] ${logMessage}`);
-            break;
-        case 'warn':
-            console.warn(`[WARN] ${logMessage}`);
-            break;
-        case 'error':
-        default:
-            console.error(`[ERROR] ${logMessage}`);
-            break;
-        }
+        // This method is kept for backwards compatibility but logs are now handled by Winston
+        logger.error('Legacy error logging', null, logEntry);
     }
 
     /**
@@ -254,6 +289,14 @@ class ErrorHandler {
                 const errors = this.validateApiRequest(req);
 
                 if (errors.length > 0) {
+                    logger.security('Request validation failed', {
+                        eventType: 'input_validation_failure',
+                        errors,
+                        method: req.method,
+                        url: req.url,
+                        correlationId: req.correlationId
+                    });
+
                     const validationError = new Error('Validation failed');
                     validationError.name = 'ValidationError';
                     validationError.details = errors;
@@ -262,7 +305,18 @@ class ErrorHandler {
 
                 // Sanitize request body
                 if (req.body) {
+                    const originalBody = JSON.stringify(req.body);
                     req.body = this.sanitizeRequestBody(req.body);
+                    const sanitizedBody = JSON.stringify(req.body);
+                    
+                    if (originalBody !== sanitizedBody) {
+                        logger.security('Request body sanitized', {
+                            eventType: 'input_sanitization',
+                            method: req.method,
+                            url: req.url,
+                            correlationId: req.correlationId
+                        });
+                    }
                 }
 
                 next();

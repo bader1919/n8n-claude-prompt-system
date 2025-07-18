@@ -85,7 +85,11 @@ ehthumbs.db
 Thumbs.db
 
 # Logs
-logs/
+logs/*.log
+logs/application-*.log
+logs/error-*.log
+logs/security-*.log
+!logs/.gitkeep
 *.log
 
 # Templates cache (generated at runtime)
