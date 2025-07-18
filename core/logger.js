@@ -389,14 +389,15 @@ class Logger {
 
             // Override res.end to log response
             const originalEnd = res.end;
+            const logger = this;
             res.end = function(chunk, encoding) {
                 const responseTime = Date.now() - startTime;
 
                 // Log response
-                this.apiResponse(req, res, responseTime, { correlationId });
+                logger.apiResponse(req, res, responseTime, { correlationId });
 
                 return originalEnd.call(this, chunk, encoding);
-            }.bind(this);
+            };
 
             next();
         };

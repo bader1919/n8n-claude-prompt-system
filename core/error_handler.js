@@ -185,7 +185,6 @@ class ErrorHandler {
      * Handle errors securely without exposing sensitive information
      */
     handleError(error, req = null) {
-        const timestamp = new Date().toISOString();
         const errorId = this.generateErrorId();
 
         // Log full error details internally using Winston logger

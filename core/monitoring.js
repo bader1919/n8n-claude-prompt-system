@@ -120,7 +120,7 @@ class MonitoringService {
             // Get disk usage if available
             let diskUsage = null;
             try {
-                const stats = await fs.stat('./');
+                await fs.stat('./');
                 // Note: Disk usage calculation is platform-specific
                 diskUsage = {
                     // This is a simplified version - in production you'd want proper disk monitoring
@@ -573,11 +573,12 @@ class MonitoringService {
 
             // Override res.end to capture metrics
             const originalEnd = res.end;
+            const monitoring = this;
             res.end = function(chunk, encoding) {
                 const responseTime = Date.now() - startTime;
 
                 // Track request metrics
-                this.trackRequest(
+                monitoring.trackRequest(
                     req.method,
                     req.route?.path || req.path,
                     res.statusCode,
@@ -590,7 +591,7 @@ class MonitoringService {
                 );
 
                 return originalEnd.call(this, chunk, encoding);
-            }.bind(this);
+            };
 
             next();
         };
