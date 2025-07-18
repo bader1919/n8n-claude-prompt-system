@@ -106,8 +106,8 @@ class ApiServer {
             }));
         }
 
-        // Rate limiting
-        if (config.security.enableRateLimiting) {
+        // Rate limiting - disable in test environment
+        if (config.security.enableRateLimiting && process.env.NODE_ENV !== 'test') {
             const limiter = rateLimit({
                 windowMs: config.security.rateLimits.windowMs,
                 max: config.security.rateLimits.maxRequests,
@@ -172,8 +172,8 @@ class ApiServer {
      * Authentication middleware
      */
     authenticationMiddleware(req, res, next) {
-        // Skip authentication for health checks
-        if (req.path === '/api/health' || req.path === '/api/metrics') {
+        // Skip authentication for health checks - note that the path is relative to /api/
+        if (req.path === '/health' || req.path === '/metrics') {
             return next();
         }
 

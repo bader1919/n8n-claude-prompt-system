@@ -116,7 +116,8 @@ class BaseProvider {
     async healthCheck() {
         try {
             // Override in subclasses for specific health checks
-            return true;
+            // Default implementation just validates config
+            return this.validateConfig();
         } catch (error) {
             return false;
         }

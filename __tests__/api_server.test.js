@@ -15,12 +15,19 @@ describe('API Server Integration Tests', () => {
     let server;
 
     beforeAll(() => {
-        // Set test environment variables
+        // Set test environment variables before creating server
         process.env.NODE_ENV = 'test';
         process.env.API_KEYS = 'test-api-key,another-test-key';
 
         server = new ApiServer();
         app = server.app;
+    });
+
+    afterAll(() => {
+        // Clean up resources
+        if (server && server.healthMonitor) {
+            server.healthMonitor.stop();
+        }
     });
 
     describe('Health Check Endpoint', () => {
@@ -262,7 +269,8 @@ describe('API Server Integration Tests', () => {
             expect(response.body).toHaveProperty('success', true);
             expect(response.body).toHaveProperty('metrics');
             expect(response.body.metrics).toHaveProperty('uptime');
-            expect(response.body.metrics).toHaveProperty('memory');
+            expect(response.body.metrics).toHaveProperty('system');
+            expect(response.body.metrics.system).toHaveProperty('memory');
             expect(response.body.metrics).toHaveProperty('timestamp');
         });
     });

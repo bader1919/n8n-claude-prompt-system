@@ -28,8 +28,15 @@ class ErrorHandler {
             return input;
         }
 
+        // First, handle dangerous protocols by completely removing them
+        let sanitized = input
+            .replace(/^javascript:.*$/gi, '') // Remove entire javascript: URLs
+            .replace(/^vbscript:.*$/gi, '')   // Remove entire vbscript: URLs
+            .replace(/^data:.*$/gi, '')       // Remove entire data: URLs
+            .replace(/^file:.*$/gi, '');      // Remove entire file: URLs
+
         // Remove potential script injections
-        const sanitized = input
+        sanitized = sanitized
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
             .replace(/javascript:/gi, '')
             .replace(/on\w+\s*=/gi, '')
@@ -37,6 +44,12 @@ class ErrorHandler {
             .replace(/Function\s*\(/gi, '')
             .replace(/setTimeout\s*\(/gi, '')
             .replace(/setInterval\s*\(/gi, '');
+
+        // Remove HTML tags and other dangerous patterns
+        sanitized = sanitized
+            .replace(/<[^>]*>/g, '') // Remove all HTML tags
+            .replace(/\bexpression\s*\(/gi, '')
+            .replace(/\burl\s*\(/gi, '');
 
         return sanitized.trim();
     }
