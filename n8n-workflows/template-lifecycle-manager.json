@@ -1,0 +1,57 @@
+{
+  "name": "Template Lifecycle Manager",
+  "description": "Workflow to manage template lifecycle operations including updating templates, deprecating old versions, managing metadata, quality checks, and usage reports.",
+  "trigger": {
+    "type": "webhook",
+    "description": "Trigger for manual operations on templates."
+  },
+  "operations": [
+    {
+      "name": "Update Template",
+      "description": "Update existing templates with new content or metadata.",
+      "action": "updateTemplate",
+      "parameters": {
+        "templateId": "string",
+        "newContent": "string",
+        "metadata": "object"
+      }
+    },
+    {
+      "name": "Deprecate Old Versions",
+      "description": "Mark old versions of templates as deprecated.",
+      "action": "deprecateOldVersions",
+      "parameters": {
+        "templateId": "string"
+      }
+    },
+    {
+      "name": "Manage Template Metadata",
+      "description": "Add or update metadata for templates.",
+      "action": "manageMetadata",
+      "parameters": {
+        "templateId": "string",
+        "metadata": "object"
+      }
+    },
+    {
+      "name": "Run Quality Checks",
+      "description": "Perform quality checks on templates to ensure standards.",
+      "action": "runQualityChecks",
+      "parameters": {
+        "templateId": "string"
+      }
+    },
+    {
+      "name": "Generate Usage Reports",
+      "description": "Generate reports on template usage and performance.",
+      "action": "generateUsageReports",
+      "parameters": {
+        "templateId": "string",
+        "timeRange": "string"
+      }
+    }
+  ],
+  "integrations": [
+    "core-components"
+  ]
+}
