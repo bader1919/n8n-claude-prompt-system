@@ -1,6 +1,6 @@
 {
+  "last_updated": "2025-07-18T15:21:58.719Z",
   "version": "1.0.0",
-  "last_updated": "2024-12-18T00:00:00.000Z",
   "templates": {
     "business/customer_support": {
       "name": "customer_support",
@@ -36,7 +36,12 @@
       },
       "status": "active",
       "description": "Professional customer support response template for handling customer inquiries and issues",
-      "tags": ["customer-service", "support", "business", "communication"],
+      "tags": [
+        "customer-service",
+        "support",
+        "business",
+        "communication"
+      ],
       "author": "System",
       "language": "en"
     },
@@ -74,57 +79,136 @@
       },
       "status": "active",
       "description": "Comprehensive blog post template for creating engaging content across various topics",
-      "tags": ["content", "blog", "writing", "marketing"],
-      "author": "System", 
+      "tags": [
+        "content",
+        "blog",
+        "writing",
+        "marketing"
+      ],
+      "author": "System",
       "language": "en"
-    }
-  },
-  "categories": {
-    "business": {
-      "name": "Business",
-      "description": "Templates for business operations, customer service, and professional communication",
-      "templateCount": 1,
-      "tags": ["professional", "customer-service", "operations"]
     },
-    "content": {
-      "name": "Content Creation",
-      "description": "Templates for creating various types of content including blogs, articles, and marketing materials",
-      "templateCount": 1,
-      "tags": ["writing", "marketing", "creative"]
-    }
-  },
-  "statistics": {
-    "totalTemplates": 2,
-    "activeTemplates": 2,
-    "deprecatedTemplates": 0,
-    "averageQualityScore": 87.5,
-    "totalExecutions": 0,
-    "totalTokensUsed": 0,
-    "totalCost": 0,
-    "topCategories": ["business", "content"],
-    "mostUsedTemplates": [],
-    "lastScanDate": "2024-12-18T00:00:00.000Z"
-  },
-  "metadata": {
-    "schema_version": "1.0.0",
-    "created_by": "n8n-claude-prompt-system",
-    "supported_variables": [
-      "customer_name",
-      "issue_description", 
-      "product_name",
-      "urgency_level",
-      "company_name",
-      "topic",
-      "target_audience",
-      "tone",
-      "key_points",
-      "call_to_action"
-    ],
-    "validation_rules": {
-      "variable_name_pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
-      "max_variable_length": 10000,
-      "max_template_size": 50000,
-      "required_fields": ["name", "category", "variables"]
+    "business_operations/customer_support_template": {
+      "name": "customer_support_template",
+      "category": "business_operations",
+      "version": "1.0.0",
+      "hash": "8ee36739c625560b1e6ec299d6cf3bdba535eb548080d91688d97bd8341bc75e",
+      "variables": [
+        "company_name",
+        "customer_context",
+        "customer_issue",
+        "priority_level",
+        "account_type",
+        "tone",
+        "response_time",
+        "company_policy",
+        "interaction_history",
+        "issue_category",
+        "ticket_system",
+        "additional_notes"
+      ],
+      "qualityScore": 100,
+      "stats": {
+        "fileSize": 875,
+        "characterCount": 875,
+        "wordCount": 102,
+        "variableCount": 12
+      },
+      "timestamps": {
+        "created": "2025-07-18T15:21:58.718Z",
+        "lastModified": "2025-07-18T15:01:25.396Z",
+        "lastUsed": null
+      },
+      "usage": {
+        "totalExecutions": 0,
+        "successfulExecutions": 0,
+        "failedExecutions": 0,
+        "averageResponseTime": 0,
+        "totalTokensUsed": 0,
+        "totalCost": 0
+      },
+      "status": "active"
+    },
+    "business_operations/data_analysis_template": {
+      "name": "data_analysis_template",
+      "category": "business_operations",
+      "version": "1.0.0",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "variables": [],
+      "qualityScore": 0,
+      "stats": {
+        "fileSize": 0,
+        "characterCount": 0,
+        "wordCount": 1,
+        "variableCount": 0
+      },
+      "timestamps": {
+        "created": "2025-07-18T15:21:58.719Z",
+        "lastModified": "2025-07-18T15:01:25.396Z",
+        "lastUsed": null
+      },
+      "usage": {
+        "totalExecutions": 0,
+        "successfulExecutions": 0,
+        "failedExecutions": 0,
+        "averageResponseTime": 0,
+        "totalTokensUsed": 0,
+        "totalCost": 0
+      },
+      "status": "active"
+    },
+    "content_creation/blog_post_template": {
+      "name": "blog_post_template",
+      "category": "content_creation",
+      "version": "1.0.0",
+      "hash": "b09438afecef2bfa1a7b425647761e3481dc55f2ff074d1da57d853bdc979e40",
+      "variables": [
+        "industry_vertical",
+        "blog_topic",
+        "target_audience",
+        "content_objective",
+        "brand_tone",
+        "target_word_count",
+        "primary_keyword",
+        "secondary_keywords",
+        "search_intent",
+        "content_pillar",
+        "brand_voice",
+        "style_preferences",
+        "compliance_notes",
+        "cta_type",
+        "pain_point",
+        "section_count",
+        "key_subtopics",
+        "example_count",
+        "data_sources",
+        "expert_perspectives",
+        "visual_types",
+        "internal_link_targets",
+        "external_sources",
+        "special_instructions"
+      ],
+      "qualityScore": 85,
+      "stats": {
+        "fileSize": 1352,
+        "characterCount": 1352,
+        "wordCount": 146,
+        "variableCount": 24
+      },
+      "timestamps": {
+        "created": "2025-07-18T15:21:58.719Z",
+        "lastModified": "2025-07-18T15:01:25.396Z",
+        "lastUsed": null
+      },
+      "usage": {
+        "totalExecutions": 0,
+        "successfulExecutions": 0,
+        "failedExecutions": 0,
+        "averageResponseTime": 0,
+        "totalTokensUsed": 0,
+        "totalCost": 0
+      },
+      "status": "active"
     }
   }
 }
