@@ -185,6 +185,7 @@ class ErrorHandler {
      * Handle errors securely without exposing sensitive information
      */
     handleError(error, req = null) {
+        const timestamp = new Date().toISOString();
         const errorId = this.generateErrorId();
 
         // Log full error details internally using Winston logger
@@ -328,7 +329,7 @@ class ErrorHandler {
                     const originalBody = JSON.stringify(req.body);
                     req.body = this.sanitizeRequestBody(req.body);
                     const sanitizedBody = JSON.stringify(req.body);
-
+                    
                     if (originalBody !== sanitizedBody) {
                         logger.security('Request body sanitized', {
                             eventType: 'input_sanitization',

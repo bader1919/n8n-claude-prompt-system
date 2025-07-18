@@ -85,7 +85,7 @@ class Logger {
         if (this.config.enableConsole) {
             transports.push(new winston.transports.Console({
                 level: this.config.level,
-                format: this.config.environment === 'development'
+                format: this.config.environment === 'development' 
                     ? winston.format.combine(
                         winston.format.colorize(),
                         winston.format.simple()
@@ -193,7 +193,7 @@ class Logger {
 
         for (const [key, value] of Object.entries(data)) {
             const lowerKey = key.toLowerCase();
-
+            
             // Check if field is sensitive
             if (this.sensitiveFields.some(field => lowerKey.includes(field))) {
                 sanitized[key] = '[REDACTED]';
@@ -371,7 +371,7 @@ class Logger {
         return (req, res, next) => {
             const startTime = Date.now();
             const correlationId = req.headers['x-correlation-id'] || this.generateCorrelationId();
-
+            
             // Store correlation ID in request
             req.correlationId = correlationId;
             res.setHeader('x-correlation-id', correlationId);
@@ -391,7 +391,7 @@ class Logger {
             const originalEnd = res.end;
             res.end = function(chunk, encoding) {
                 const responseTime = Date.now() - startTime;
-
+                
                 // Log response
                 this.apiResponse(req, res, responseTime, { correlationId });
 
