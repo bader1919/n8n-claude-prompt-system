@@ -31,7 +31,13 @@
     "express-validator": "^7.0.1",
     "jsonschema": "^1.4.1",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "redis": "^4.6.8",
+    "ioredis": "^5.3.2",
+    "lru-cache": "^10.1.0",
+    "compression": "^1.7.4",
+    "node-schedule": "^2.1.1",
+    "prom-client": "^15.1.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",
