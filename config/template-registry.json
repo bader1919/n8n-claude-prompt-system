@@ -1,0 +1,130 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2024-12-18T00:00:00.000Z",
+  "templates": {
+    "business/customer_support": {
+      "name": "customer_support",
+      "category": "business",
+      "version": "1.0.0",
+      "hash": "a7f5d2c8b6e9f1a4e3d7c9b8a6f5e4d3c2b1a9e8f7d6c5b4a3e2d1c9b8a7f6e5d4",
+      "variables": [
+        "customer_name",
+        "issue_description",
+        "product_name",
+        "urgency_level",
+        "company_name"
+      ],
+      "qualityScore": 85,
+      "stats": {
+        "fileSize": 1250,
+        "characterCount": 1200,
+        "wordCount": 180,
+        "variableCount": 5
+      },
+      "timestamps": {
+        "created": "2024-12-18T00:00:00.000Z",
+        "lastModified": "2024-12-18T00:00:00.000Z",
+        "lastUsed": null
+      },
+      "usage": {
+        "totalExecutions": 0,
+        "successfulExecutions": 0,
+        "failedExecutions": 0,
+        "averageResponseTime": 0,
+        "totalTokensUsed": 0,
+        "totalCost": 0
+      },
+      "status": "active",
+      "description": "Professional customer support response template for handling customer inquiries and issues",
+      "tags": ["customer-service", "support", "business", "communication"],
+      "author": "System",
+      "language": "en"
+    },
+    "content/blog_post": {
+      "name": "blog_post",
+      "category": "content",
+      "version": "1.0.0",
+      "hash": "b8f6e3d9c7a2f5e8d1c6b9a4e7d2c5b8f1e4d7c2a9f6e3d8c1b4e7a2f5d9c6b3e8",
+      "variables": [
+        "topic",
+        "target_audience",
+        "tone",
+        "key_points",
+        "call_to_action"
+      ],
+      "qualityScore": 90,
+      "stats": {
+        "fileSize": 1800,
+        "characterCount": 1750,
+        "wordCount": 250,
+        "variableCount": 5
+      },
+      "timestamps": {
+        "created": "2024-12-18T00:00:00.000Z",
+        "lastModified": "2024-12-18T00:00:00.000Z",
+        "lastUsed": null
+      },
+      "usage": {
+        "totalExecutions": 0,
+        "successfulExecutions": 0,
+        "failedExecutions": 0,
+        "averageResponseTime": 0,
+        "totalTokensUsed": 0,
+        "totalCost": 0
+      },
+      "status": "active",
+      "description": "Comprehensive blog post template for creating engaging content across various topics",
+      "tags": ["content", "blog", "writing", "marketing"],
+      "author": "System", 
+      "language": "en"
+    }
+  },
+  "categories": {
+    "business": {
+      "name": "Business",
+      "description": "Templates for business operations, customer service, and professional communication",
+      "templateCount": 1,
+      "tags": ["professional", "customer-service", "operations"]
+    },
+    "content": {
+      "name": "Content Creation",
+      "description": "Templates for creating various types of content including blogs, articles, and marketing materials",
+      "templateCount": 1,
+      "tags": ["writing", "marketing", "creative"]
+    }
+  },
+  "statistics": {
+    "totalTemplates": 2,
+    "activeTemplates": 2,
+    "deprecatedTemplates": 0,
+    "averageQualityScore": 87.5,
+    "totalExecutions": 0,
+    "totalTokensUsed": 0,
+    "totalCost": 0,
+    "topCategories": ["business", "content"],
+    "mostUsedTemplates": [],
+    "lastScanDate": "2024-12-18T00:00:00.000Z"
+  },
+  "metadata": {
+    "schema_version": "1.0.0",
+    "created_by": "n8n-claude-prompt-system",
+    "supported_variables": [
+      "customer_name",
+      "issue_description", 
+      "product_name",
+      "urgency_level",
+      "company_name",
+      "topic",
+      "target_audience",
+      "tone",
+      "key_points",
+      "call_to_action"
+    ],
+    "validation_rules": {
+      "variable_name_pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+      "max_variable_length": 10000,
+      "max_template_size": 50000,
+      "required_fields": ["name", "category", "variables"]
+    }
+  }
+}

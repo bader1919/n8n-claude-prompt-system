@@ -1,0 +1,63 @@
+{
+  "name": "n8n-claude-prompt-system",
+  "version": "1.0.0",
+  "description": "Template-based prompt management framework for integrating Claude AI with n8n workflows",
+  "main": "core/template_manager.js",
+  "scripts": {
+    "start": "node core/template_manager.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev": "nodemon core/template_manager.js"
+  },
+  "keywords": [
+    "n8n",
+    "claude",
+    "ai",
+    "prompt",
+    "template",
+    "automation",
+    "workflow"
+  ],
+  "author": "Bader Abdulrahim",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "jsonschema": "^1.4.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.55.0",
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bader1919/n8n-claude-prompt-system.git"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "core/**/*.js",
+      "providers/**/*.js",
+      "!core/error_handler.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"],
+    "testMatch": [
+      "**/__tests__/**/*.test.js",
+      "**/?(*.)+(spec|test).js"
+    ]
+  }
+}

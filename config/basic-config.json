@@ -1,14 +1,93 @@
 {
+  "version": "1.0.0",
+  "environment": "development",
+  "application": {
+    "name": "n8n-claude-prompt-system",
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
   "apiEndpoints": {
-    "baseUrl": "https://api.example.com",
-    "authEndpoint": "/auth",
-    "dataEndpoint": "/data"
+    "baseUrl": "http://localhost:3000",
+    "authEndpoint": "/api/auth",
+    "templateEndpoint": "/api/templates",
+    "generateEndpoint": "/api/generate",
+    "healthEndpoint": "/api/health"
   },
   "templatePaths": {
-    "basicTemplate": "templates/basic-template.json"
+    "baseDirectory": "./templates",
+    "businessTemplates": "./templates/business",
+    "contentTemplates": "./templates/content",
+    "customTemplates": "./templates/custom"
   },
   "validationRules": {
-    "requiredFields": ["username", "password"],
-    "maxFieldLength": 255
+    "requiredFields": ["template", "variables"],
+    "maxFieldLength": 10000,
+    "maxTemplateSize": 50000,
+    "allowedVariablePattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+    "maxVariableCount": 50,
+    "minTemplateQuality": 60
+  },
+  "security": {
+    "enableAuthentication": true,
+    "enableRateLimiting": true,
+    "enableInputSanitization": true,
+    "enableCors": true,
+    "enableHttps": false,
+    "allowedOrigins": ["http://localhost:5678", "http://localhost:3000"],
+    "rateLimits": {
+      "windowMs": 900000,
+      "maxRequests": 100,
+      "generateRequests": 20
+    },
+    "headers": {
+      "enableHelmet": true,
+      "enableHsts": false,
+      "enableXssFilter": true,
+      "enableNoSniff": true,
+      "enableFrameGuard": true
+    }
+  },
+  "monitoring": {
+    "enableHealthChecks": true,
+    "enableMetrics": true,
+    "enableLogging": true,
+    "logLevel": "info",
+    "healthCheckInterval": 30000,
+    "metricsEndpoint": "/api/metrics"
+  },
+  "cache": {
+    "enableTemplateCache": true,
+    "cacheTtl": 3600000,
+    "maxCacheSize": 100,
+    "enableResponseCache": false
+  },
+  "providers": {
+    "defaultProvider": "claude",
+    "fallbackProvider": "openai",
+    "enableProviderValidation": true,
+    "maxRetries": 3,
+    "retryDelay": 1000,
+    "requestTimeout": 30000
+  },
+  "features": {
+    "enableTemplateDiscovery": true,
+    "enableTemplateVersioning": true,
+    "enableUsageTracking": true,
+    "enableCostTracking": true,
+    "enableQualityScoring": true
+  },
+  "development": {
+    "enableDebugMode": true,
+    "enableStackTraces": true,
+    "enableVerboseLogging": false,
+    "enableMockProviders": false
+  },
+  "production": {
+    "enableDebugMode": false,
+    "enableStackTraces": false,
+    "enableVerboseLogging": false,
+    "enableMockProviders": false,
+    "requireHttps": true,
+    "enableAuditLogging": true
   }
 }
