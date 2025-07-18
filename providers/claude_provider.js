@@ -1,8 +1,43 @@
+/**
+ * Claude Provider - Anthropic Claude AI integration for the n8n Claude Prompt System
+ *
+ * This provider handles communication with Anthropic's Claude API, including:
+ * - Message formatting and processing
+ * - Rate limiting and error handling
+ * - Response parsing and validation
+ * - Cost calculation and usage tracking
+ *
+ * @class ClaudeProvider
+ * @extends BaseProvider
+ * @author Bader Abdulrahim
+ * @version 1.0.0
+ *
+ * @example
+ * const provider = new ClaudeProvider(apiKey, {
+ *   errorHandler: { logLevel: 'info' }
+ * });
+ *
+ * const response = await provider.generateCompletion('Hello, Claude!', {
+ *   model: 'claude-3-sonnet-20240229',
+ *   maxTokens: 100
+ * });
+ */
+
 const axios = require('axios');
 const BaseProvider = require('./base_provider');
 const { ErrorHandler, ValidationError } = require('../core/error_handler');
 
 class ClaudeProvider extends BaseProvider {
+    /**
+     * Create a new Claude provider instance
+     *
+     * @param {string} apiKey - Anthropic API key for authentication
+     * @param {Object} options - Configuration options
+     * @param {Object} [options.errorHandler] - Error handler configuration
+     * @param {number} [options.timeout=30000] - Request timeout in milliseconds
+     * @param {number} [options.maxRetries=3] - Maximum number of retry attempts
+     * @throws {ValidationError} When API key is not provided
+     */
     constructor(apiKey, options = {}) {
         super();
         this.apiKey = apiKey;
@@ -17,14 +52,21 @@ class ClaudeProvider extends BaseProvider {
     }
 
     /**
-   * Create simple rate limiter to prevent API abuse
-   */
+     * Create simple rate limiter to prevent API abuse
+     *
+     * @returns {Object} Rate limiter object with checkLimit method
+     * @private
+     */
     createRateLimiter() {
         const requests = [];
         const maxRequests = 50; // Requests per minute
         const windowMs = 60 * 1000; // 1 minute
 
         return {
+            /**
+             * Check if request is within rate limits
+             * @throws {Error} When rate limit is exceeded
+             */
             checkLimit: () => {
                 const now = Date.now();
                 // Remove old requests outside the window
@@ -44,8 +86,31 @@ class ClaudeProvider extends BaseProvider {
     }
 
     /**
-   * Generate completion using modern Claude Messages API
-   */
+     * Generate completion using Claude Messages API
+     *
+     * @param {string} prompt - The user prompt to send to Claude
+     * @param {Object} [options={}] - Generation options
+     * @param {string} [options.model='claude-3-haiku-20240307'] - Claude model to use
+     * @param {number} [options.maxTokens=1000] - Maximum tokens to generate (max 4096)
+     * @param {number} [options.temperature=0.7] - Sampling temperature (0-1)
+     * @param {string} [options.systemPrompt] - System prompt to set behavior
+     * @param {Array} [options.stopSequences] - Sequences where generation should stop
+     *
+     * @returns {Promise<Object>} Standardized response object with success, content, and metadata
+     * @throws {ValidationError} When prompt is invalid or too long
+     * @throws {Error} When API request fails or rate limit exceeded
+     *
+     * @example
+     * const response = await provider.generateCompletion('Hello Claude!', {
+     *   model: 'claude-3-sonnet-20240229',
+     *   maxTokens: 100,
+     *   temperature: 0.5
+     * });
+     *
+     * if (response.success) {
+     *   console.log(response.content);
+     * }
+     */
     async generateCompletion(prompt, options = {}) {
         try {
             // Check rate limit

@@ -169,7 +169,7 @@ class HealthMonitor {
         const unknownServices = services.filter(s => s.status === 'unknown');
 
         if (unhealthyServices.length > 0) return 'degraded';
-        
+
         // In test environment, treat unknown services as healthy if they haven't been checked yet
         if (unknownServices.length > 0 && process.env.NODE_ENV !== 'test') return 'unknown';
 
