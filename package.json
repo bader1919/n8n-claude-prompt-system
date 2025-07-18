@@ -2,15 +2,15 @@
   "name": "n8n-claude-prompt-system",
   "version": "1.0.0",
   "description": "Template-based prompt management framework for integrating Claude AI with n8n workflows",
-  "main": "api_server.js",
+  "main": "core/template_manager.js",
   "scripts": {
-    "start": "node api_server.js",
+    "start": "node core/template_manager.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "dev": "nodemon api_server.js"
+    "dev": "nodemon core/template_manager.js"
   },
   "keywords": [
     "n8n",
@@ -24,7 +24,6 @@
   "author": "Bader Abdulrahim",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.3",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
