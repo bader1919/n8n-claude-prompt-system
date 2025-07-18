@@ -30,6 +30,8 @@ const {
 } = require('./core/error_types');
 const { schemaValidator } = require('./core/schema_validator');
 const { circuitBreakerManager } = require('./core/circuit_breaker');
+const SecurityManager = require('./core/security_manager');
+const { MonitoringManager, ConsoleIntegration } = require('./core/monitoring_manager');
 const HealthMonitor = require('./core/health_monitor');
 const ClaudeProvider = require('./providers/claude_provider');
 const config = require('./config/basic-config.json');
@@ -45,6 +47,19 @@ class ApiServer {
         this.templateManager = new TemplateManager();
         this.providers = new Map();
         this.healthMonitor = new HealthMonitor();
+        
+        // Initialize security and monitoring
+        this.securityManager = new SecurityManager({
+            config: config.security,
+            environment: process.env.NODE_ENV || 'development'
+        });
+        
+        this.monitoringManager = new MonitoringManager({
+            config: config.monitoring
+        });
+        
+        // Setup monitoring integrations
+        this.setupMonitoring();
 
         this.initializeProviders();
         this.setupHealthChecks();
@@ -53,6 +68,24 @@ class ApiServer {
         this.setupErrorHandling();
     }
 
+    /**
+     * Setup monitoring integrations
+     */
+    setupMonitoring() {
+        // Add console integration for development
+        this.monitoringManager.registerIntegration(
+            'console', 
+            new ConsoleIntegration({ logLevel: config.monitoring.logLevel })
+        );
+
+        // Setup circuit breaker monitoring
+        circuitBreakerManager.on = circuitBreakerManager.on || (() => {}); // Fallback if not implemented
+        
+        // Monitor security events
+        this.monitoringManager.on('alert', (alert) => {
+            console.warn(`[ALERT] ${alert.type}: ${JSON.stringify(alert.data)}`);
+        });
+    }
     /**
      * Setup health checks for monitoring
      */
@@ -113,23 +146,18 @@ class ApiServer {
      * Setup Express middleware
      */
     setupMiddleware() {
-        // Security headers
+        // Security headers with enhanced configuration
         if (config.security.headers.enableHelmet) {
-            this.app.use(helmet({
-                hsts: config.security.headers.enableHsts,
-                xssFilter: config.security.headers.enableXssFilter,
-                noSniff: config.security.headers.enableNoSniff,
-                frameguard: config.security.headers.enableFrameGuard
-            }));
+            this.app.use(helmet(this.securityManager.getHelmetConfig()));
         }
 
-        // CORS
+        // Enhanced CORS with security monitoring
         if (config.security.enableCors) {
-            this.app.use(cors({
-                origin: config.security.allowedOrigins,
-                credentials: true
-            }));
+            this.app.use(cors(this.securityManager.getCorsConfig()));
         }
+
+        // Additional security middleware
+        this.app.use(this.securityManager.securityMiddleware());
 
         // Rate limiting (disabled in test environment)
         if (config.security.enableRateLimiting && process.env.NODE_ENV !== 'test') {
@@ -162,9 +190,10 @@ class ApiServer {
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-        // Request tracking middleware
+        // Request tracking middleware with monitoring
         this.app.locals.healthMonitor = this.healthMonitor;
         this.app.use(this.healthMonitor.requestTrackingMiddleware());
+        this.app.use(this.monitoringManager.requestTrackingMiddleware());
 
         // Request validation middleware with schema validation
         if (config.security.enableInputSanitization) {
@@ -254,8 +283,14 @@ class ApiServer {
         this.app.get('/api/providers', this.getProviders.bind(this));
         this.app.post('/api/providers/:provider/test', this.testProvider.bind(this));
 
-        // Metrics endpoint
+        // Metrics and monitoring endpoints
         this.app.get('/api/metrics', this.getMetrics.bind(this));
+        this.app.get('/api/security/metrics', this.getSecurityMetrics.bind(this));
+        this.app.get('/api/monitoring/alerts', this.getAlerts.bind(this));
+        this.app.post('/api/monitoring/alerts/:id/acknowledge', this.acknowledgeAlert.bind(this));
+
+        // CSP violation reporting
+        this.app.post('/api/security/csp-report', this.securityManager.cspReportHandler());
 
         // Remove the duplicate default route from here
     }
@@ -448,6 +483,15 @@ class ApiServer {
                     cost: 0
                 });
             }
+            
+            // Emit error event for monitoring
+            this.monitoringManager.emit('error', error, {
+                url: req.url,
+                method: req.method,
+                template: req.body?.template,
+                provider: req.body?.provider
+            });
+            
             next(error);
         }
     }
@@ -497,12 +541,13 @@ class ApiServer {
     }
 
     /**
-     * Get system metrics with circuit breaker information
+     * Get system metrics with comprehensive monitoring data
      */
     getMetrics(req, res) {
         const templateStats = this.templateManager.getTemplateStats();
         const healthMetrics = this.healthMonitor.getMetrics();
         const circuitBreakerStatus = circuitBreakerManager.getAllStatus();
+        const monitoringMetrics = this.monitoringManager.getMetrics();
 
         res.json({
             success: true,
@@ -512,9 +557,90 @@ class ApiServer {
                 templates: templateStats,
                 providers: Array.from(this.providers.keys()),
                 circuitBreakers: circuitBreakerStatus,
+                monitoring: monitoringMetrics,
                 timestamp: new Date().toISOString()
             }
         });
+    }
+
+    /**
+     * Get security metrics
+     */
+    getSecurityMetrics(req, res) {
+        try {
+            const securityMetrics = this.securityManager.getSecurityMetrics();
+            const recentViolations = this.securityManager.getRecentViolations(20);
+
+            res.json({
+                success: true,
+                security: {
+                    metrics: securityMetrics,
+                    recentViolations,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                error: true,
+                message: 'Failed to retrieve security metrics'
+            });
+        }
+    }
+
+    /**
+     * Get monitoring alerts
+     */
+    getAlerts(req, res) {
+        try {
+            const filters = {
+                severity: req.query.severity,
+                type: req.query.type,
+                acknowledged: req.query.acknowledged === 'true' ? true : 
+                            req.query.acknowledged === 'false' ? false : undefined
+            };
+
+            const alerts = this.monitoringManager.getAlerts(filters);
+
+            res.json({
+                success: true,
+                alerts,
+                total: alerts.length,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            res.status(500).json({
+                error: true,
+                message: 'Failed to retrieve alerts'
+            });
+        }
+    }
+
+    /**
+     * Acknowledge monitoring alert
+     */
+    acknowledgeAlert(req, res) {
+        try {
+            const { id } = req.params;
+            const acknowledged = this.monitoringManager.acknowledgeAlert(id);
+
+            if (acknowledged) {
+                res.json({
+                    success: true,
+                    message: 'Alert acknowledged',
+                    alertId: id
+                });
+            } else {
+                res.status(404).json({
+                    error: true,
+                    message: 'Alert not found'
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                error: true,
+                message: 'Failed to acknowledge alert'
+            });
+        }
     }
 
     /**

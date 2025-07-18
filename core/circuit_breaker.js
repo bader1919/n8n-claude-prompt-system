@@ -93,6 +93,10 @@ class CircuitBreaker {
             if (this.successCount >= this.successThreshold) {
                 this.close();
             }
+        } else if (this.state === 'open') {
+            // If we're in open state and had a success, transition to half-open first
+            this.state = 'half-open';
+            this.successCount = 1;
         }
     }
 
