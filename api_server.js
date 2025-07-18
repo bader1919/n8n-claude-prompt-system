@@ -98,7 +98,7 @@ class ApiServer {
         const claudeApiKey = process.env.ANTHROPIC_API_KEY;
         if (claudeApiKey) {
             this.providers.set('claude', new ClaudeProvider(claudeApiKey));
-            logger.info('Provider initialized', { 
+            logger.info('Provider initialized', {
                 provider: 'claude',
                 eventType: 'provider_initialization'
             });
@@ -151,12 +151,12 @@ class ApiServer {
                         url: req.url,
                         userAgent: req.headers['user-agent']
                     });
-                    
+
                     this.monitoring.trackSecurityEvent('rate_limit', {
                         ip: req.ip,
                         endpoint: req.url
                     });
-                    
+
                     res.status(429).json({
                         error: true,
                         message: 'Rate limit exceeded',
@@ -182,13 +182,13 @@ class ApiServer {
                         method: req.method,
                         url: req.url
                     });
-                    
+
                     this.monitoring.trackSecurityEvent('rate_limit', {
                         ip: req.ip,
                         endpoint: req.url,
                         limitType: 'generation'
                     });
-                    
+
                     res.status(429).json({
                         error: true,
                         message: 'Generation rate limit exceeded',
@@ -220,13 +220,13 @@ class ApiServer {
         // Request tracking middleware
         this.app.locals.healthMonitor = this.healthMonitor;
         this.app.locals.monitoring = this.monitoring;
-        
+
         // Add request correlation and logging
         this.app.use(logger.requestLoggingMiddleware());
-        
+
         // Add monitoring middleware
         this.app.use(this.monitoring.requestMonitoringMiddleware());
-        
+
         // Add legacy health monitor middleware
         this.app.use(this.healthMonitor.requestTrackingMiddleware());
 
@@ -262,7 +262,7 @@ class ApiServer {
      */
     authenticationMiddleware(req, res, next) {
         // Skip authentication for health checks and metrics
-        if (req.path === '/api/health' || 
+        if (req.path === '/api/health' ||
             req.path === '/api/metrics' ||
             req.path.startsWith('/api/health/')) {
             return next();
@@ -278,12 +278,12 @@ class ApiServer {
                 url: req.url,
                 correlationId: req.correlationId
             });
-            
+
             this.monitoring.trackSecurityEvent('auth_failure', {
                 reason: 'no_api_key',
                 ip: req.ip
             });
-            
+
             return next(new AuthenticationError('API key required'));
         }
 
@@ -298,12 +298,12 @@ class ApiServer {
                 url: req.url,
                 correlationId: req.correlationId
             });
-            
+
             this.monitoring.trackSecurityEvent('auth_failure', {
                 reason: 'invalid_api_key',
                 ip: req.ip
             });
-            
+
             return next(new AuthenticationError('Invalid API key'));
         }
 
@@ -455,7 +455,7 @@ class ApiServer {
      */
     async generateCompletion(req, res, next) {
         const startTime = Date.now();
-        
+
         try {
             // Validate request
             const errors = validationResult(req);
@@ -542,7 +542,7 @@ class ApiServer {
 
         } catch (error) {
             const responseTime = Date.now() - startTime;
-            
+
             // Track failed provider usage
             if (req.body.provider) {
                 this.monitoring.trackProviderUsage(
@@ -646,7 +646,7 @@ class ApiServer {
     getMonitoringMetrics(req, res) {
         const monitoringMetrics = this.monitoring.getMetrics();
         const healthStatus = this.monitoring.getHealthStatus();
-        
+
         res.json({
             success: true,
             monitoring: monitoringMetrics,
@@ -684,7 +684,7 @@ class ApiServer {
                 environment: process.env.NODE_ENV || 'development',
                 eventType: 'server_start'
             });
-            
+
             console.log(`n8n Claude Prompt System API server running on ${config.application.host}:${this.port}`);
             console.log(`Health check: http://${config.application.host}:${this.port}/api/health`);
             console.log(`API docs: http://${config.application.host}:${this.port}/`);
@@ -698,7 +698,7 @@ class ApiServer {
         logger.info('API Server shutting down', {
             eventType: 'server_shutdown'
         });
-        
+
         this.monitoring.stop();
         this.healthMonitor.stop();
         logger.cleanup();

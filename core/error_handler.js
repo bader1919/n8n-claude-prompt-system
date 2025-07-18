@@ -329,7 +329,7 @@ class ErrorHandler {
                     const originalBody = JSON.stringify(req.body);
                     req.body = this.sanitizeRequestBody(req.body);
                     const sanitizedBody = JSON.stringify(req.body);
-                    
+
                     if (originalBody !== sanitizedBody) {
                         logger.security('Request body sanitized', {
                             eventType: 'input_sanitization',
