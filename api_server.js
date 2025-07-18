@@ -262,9 +262,9 @@ class ApiServer {
      */
     authenticationMiddleware(req, res, next) {
         // Skip authentication for health checks and metrics
-        if (req.path === '/api/health' ||
+        if (req.path === '/health' ||
             req.path === '/api/metrics' ||
-            req.path.startsWith('/api/health/')) {
+            req.path.startsWith('/health/')) {
             return next();
         }
 
