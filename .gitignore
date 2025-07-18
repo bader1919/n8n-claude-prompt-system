@@ -89,7 +89,6 @@ logs/*.log
 logs/application-*.log
 logs/error-*.log
 logs/security-*.log
-logs/.*-audit.json
 !logs/.gitkeep
 *.log
 

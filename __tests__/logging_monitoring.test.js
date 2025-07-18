@@ -34,7 +34,7 @@ describe('Logging and Monitoring System', () => {
         if (monitoring) {
             monitoring.stop();
         }
-
+        
         // Clean up test logs
         try {
             await fs.rmdir(testLogDir, { recursive: true });
@@ -64,7 +64,7 @@ describe('Logging and Monitoring System', () => {
             };
 
             const sanitized = logger.sanitizeData(sensitiveData);
-
+            
             expect(sanitized.username).toBe('testuser');
             expect(sanitized.password).toBe('[REDACTED]');
             expect(sanitized.apiKey).toBe('[REDACTED]');
@@ -86,7 +86,7 @@ describe('Logging and Monitoring System', () => {
             };
 
             const sanitized = logger.sanitizeData(nestedData);
-
+            
             expect(sanitized.user.name).toBe('test');
             expect(sanitized.user.credentials.password).toBe('[REDACTED]');
             expect(sanitized.user.credentials.token).toBe('[REDACTED]');
@@ -96,9 +96,9 @@ describe('Logging and Monitoring System', () => {
         test('should truncate very long strings', () => {
             const longString = 'a'.repeat(2000);
             const data = { content: longString };
-
+            
             const sanitized = logger.sanitizeData(data);
-
+            
             expect(sanitized.content).toHaveLength(1014); // 1000 + '...[TRUNCATED]'
             expect(sanitized.content.endsWith('...[TRUNCATED]')).toBe(true);
         });
@@ -184,7 +184,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should track request metrics', () => {
             monitoring.trackRequest('GET', '/api/test', 200, 150);
-
+            
             const metrics = monitoring.getMetrics();
             expect(metrics.requests.total).toBe(1);
             expect(metrics.requests.successful).toBe(1);
@@ -193,7 +193,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should track failed requests', () => {
             monitoring.trackRequest('POST', '/api/test', 500, 250);
-
+            
             const metrics = monitoring.getMetrics();
             expect(metrics.requests.total).toBe(1);
             expect(metrics.requests.successful).toBe(0);
@@ -203,7 +203,7 @@ describe('Logging and Monitoring System', () => {
         test('should track security events', () => {
             monitoring.trackSecurityEvent('auth_failure');
             monitoring.trackSecurityEvent('rate_limit');
-
+            
             const metrics = monitoring.getMetrics();
             expect(metrics.security.authFailures).toBe(1);
             expect(metrics.security.rateLimitTriggers).toBe(1);
@@ -211,7 +211,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should track provider usage', () => {
             monitoring.trackProviderUsage('claude', 'generate', true, 1000, 0.05);
-
+            
             const metrics = monitoring.getMetrics();
             expect(metrics.providers.claude).toBeDefined();
             expect(metrics.providers.claude.requests).toBe(1);
@@ -226,7 +226,7 @@ describe('Logging and Monitoring System', () => {
             monitoring.trackRequest('GET', '/api/test1', 200, 150);
 
             const metrics = monitoring.getMetrics();
-
+            
             expect(metrics.requests.total).toBe(3);
             expect(metrics.requests.successful).toBe(2);
             expect(metrics.requests.failed).toBe(1);
@@ -235,7 +235,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should get health status', () => {
             const healthStatus = monitoring.getHealthStatus();
-
+            
             expect(healthStatus.status).toBeDefined();
             expect(healthStatus.timestamp).toBeDefined();
             expect(healthStatus.issues).toBeDefined();
@@ -249,10 +249,10 @@ describe('Logging and Monitoring System', () => {
 
         test('should handle start and stop', () => {
             expect(monitoring.isRunning).toBe(false);
-
+            
             monitoring.start();
             expect(monitoring.isRunning).toBe(true);
-
+            
             monitoring.stop();
             expect(monitoring.isRunning).toBe(false);
         });
@@ -273,7 +273,7 @@ describe('Logging and Monitoring System', () => {
     describe('Integration Tests', () => {
         test('should handle request logging middleware', () => {
             const middleware = logger.requestLoggingMiddleware();
-
+            
             const mockReq = {
                 method: 'GET',
                 url: '/api/test',
@@ -283,12 +283,12 @@ describe('Logging and Monitoring System', () => {
                 body: { test: 'data' },
                 query: { param: 'value' }
             };
-
+            
             const mockRes = {
                 setHeader: jest.fn(),
                 end: jest.fn()
             };
-
+            
             const mockNext = jest.fn();
 
             expect(() => {
@@ -301,7 +301,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should handle monitoring middleware', () => {
             const middleware = monitoring.requestMonitoringMiddleware();
-
+            
             const mockReq = {
                 method: 'GET',
                 route: { path: '/api/test' },
@@ -310,13 +310,13 @@ describe('Logging and Monitoring System', () => {
                 ip: '127.0.0.1',
                 correlationId: 'test-correlation-id'
             };
-
+            
             const mockRes = {
                 statusCode: 200,
                 get: jest.fn().mockReturnValue('100'),
                 end: jest.fn()
             };
-
+            
             const mockNext = jest.fn();
 
             expect(() => {
@@ -327,7 +327,7 @@ describe('Logging and Monitoring System', () => {
 
         test('should handle error logging middleware', () => {
             const middleware = logger.errorLoggingMiddleware();
-
+            
             const mockError = new Error('Test error');
             const mockReq = {
                 method: 'GET',
@@ -336,7 +336,7 @@ describe('Logging and Monitoring System', () => {
                 ip: '127.0.0.1',
                 correlationId: 'test-correlation-id'
             };
-
+            
             const mockRes = {};
             const mockNext = jest.fn();
 
@@ -363,7 +363,7 @@ describe('Logging and Monitoring System', () => {
         test('should update monitoring configuration', () => {
             const newConfig = { metricsInterval: 200 };
             monitoring.updateConfig(newConfig);
-
+            
             const config = monitoring.getConfig();
             expect(config.metricsInterval).toBe(200);
         });
