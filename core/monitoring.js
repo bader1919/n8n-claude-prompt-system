@@ -120,7 +120,7 @@ class MonitoringService {
             // Get disk usage if available
             let diskUsage = null;
             try {
-                const stats = await fs.stat('./');
+                await fs.stat('./');
                 // Note: Disk usage calculation is platform-specific
                 diskUsage = {
                     // This is a simplified version - in production you'd want proper disk monitoring
@@ -318,7 +318,7 @@ class MonitoringService {
             cost,
             totalRequests: usage.requests,
             successRate: ((usage.successes / usage.requests) * 100).toFixed(2),
-            avgResponseTime: responseTimes.length > 0 
+            avgResponseTime: responseTimes.length > 0
                 ? (responseTimes.reduce((sum, rt) => sum + rt.responseTime, 0) / responseTimes.length).toFixed(2)
                 : 0,
             ...metadata
@@ -416,12 +416,12 @@ class MonitoringService {
 
         // Clean up provider metrics
         for (const [provider, responseTimes] of this.metrics.providers.responseTimes.entries()) {
-            this.metrics.providers.responseTimes.set(provider, 
+            this.metrics.providers.responseTimes.set(provider,
                 responseTimes.filter(rt => rt.timestamp > cutoff));
         }
 
         for (const [provider, errors] of this.metrics.providers.errors.entries()) {
-            this.metrics.providers.errors.set(provider, 
+            this.metrics.providers.errors.set(provider,
                 errors.filter(error => error.timestamp > cutoff));
         }
 
@@ -438,7 +438,7 @@ class MonitoringService {
         const uptime = process.uptime();
 
         // Calculate error rate
-        const errorRate = this.metrics.requests.total > 0 
+        const errorRate = this.metrics.requests.total > 0
             ? ((this.metrics.requests.failed / this.metrics.requests.total) * 100).toFixed(2)
             : 0;
 
@@ -446,7 +446,7 @@ class MonitoringService {
         const recentResponseTimes = this.metrics.requests.responseTimes
             .filter(rt => rt.timestamp > now - 300000) // Last 5 minutes
             .map(rt => rt.responseTime);
-        
+
         const avgResponseTime = recentResponseTimes.length > 0
             ? (recentResponseTimes.reduce((sum, rt) => sum + rt, 0) / recentResponseTimes.length).toFixed(2)
             : 0;
@@ -465,7 +465,7 @@ class MonitoringService {
                 successes: usage.successes,
                 failures: usage.failures,
                 successRate: usage.requests > 0 ? ((usage.successes / usage.requests) * 100).toFixed(2) : 0,
-                avgResponseTime: recentResponseTimes.length > 0 
+                avgResponseTime: recentResponseTimes.length > 0
                     ? (recentResponseTimes.reduce((sum, rt) => sum + rt, 0) / recentResponseTimes.length).toFixed(2)
                     : 0,
                 totalCost: costs.total,
@@ -496,7 +496,7 @@ class MonitoringService {
             },
             providers: providerStats,
             alerts: {
-                active: this.metrics.system.alerts.filter(alert => 
+                active: this.metrics.system.alerts.filter(alert =>
                     alert.timestamp > now - 3600000 // Last hour
                 ).length,
                 recent: this.metrics.system.alerts.slice(-5) // Last 5 alerts
@@ -510,9 +510,9 @@ class MonitoringService {
     getHealthStatus() {
         const metrics = this.getMetrics();
         const now = Date.now();
-        
+
         let status = 'healthy';
-        let issues = [];
+        const issues = [];
 
         // Check error rate
         const errorRate = parseFloat(metrics.requests.errorRate);
@@ -529,10 +529,10 @@ class MonitoringService {
         }
 
         // Check for recent critical alerts
-        const criticalAlerts = this.metrics.system.alerts.filter(alert => 
+        const criticalAlerts = this.metrics.system.alerts.filter(alert =>
             alert.severity === 'critical' && alert.timestamp > now - 300000 // Last 5 minutes
         );
-        
+
         if (criticalAlerts.length > 0) {
             status = 'critical';
             issues.push(`${criticalAlerts.length} critical alerts in last 5 minutes`);
@@ -573,11 +573,12 @@ class MonitoringService {
 
             // Override res.end to capture metrics
             const originalEnd = res.end;
+            const monitoring = this;
             res.end = function(chunk, encoding) {
                 const responseTime = Date.now() - startTime;
-                
+
                 // Track request metrics
-                this.trackRequest(
+                monitoring.trackRequest(
                     req.method,
                     req.route?.path || req.path,
                     res.statusCode,
@@ -590,7 +591,7 @@ class MonitoringService {
                 );
 
                 return originalEnd.call(this, chunk, encoding);
-            }.bind(this);
+            };
 
             next();
         };
