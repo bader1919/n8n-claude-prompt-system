@@ -137,6 +137,18 @@ class ApiServer {
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+        // JSON parsing error handler
+        this.app.use((error, req, res, next) => {
+            if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+                return res.status(400).json({
+                    error: true,
+                    message: 'Invalid JSON format',
+                    type: 'validation_error'
+                });
+            }
+            next(error);
+        });
+
         // Request tracking middleware
         this.app.locals.healthMonitor = this.healthMonitor;
         this.app.use(this.healthMonitor.requestTrackingMiddleware());
@@ -162,8 +174,8 @@ class ApiServer {
             });
         });
 
-        // Authentication middleware (disabled in test environment)
-        if (config.security.enableAuthentication && process.env.NODE_ENV !== 'test') {
+        // Authentication middleware
+        if (config.security.enableAuthentication) {
             this.app.use('/api/', this.authenticationMiddleware.bind(this));
         }
     }
@@ -173,7 +185,9 @@ class ApiServer {
      */
     authenticationMiddleware(req, res, next) {
         // Skip authentication for health checks and metrics
-        if (req.path === '/api/health' || req.path === '/api/metrics') {
+        if (req.path === '/api/health' || 
+            req.path === '/api/metrics' ||
+            req.path.startsWith('/api/health/')) {
             return next();
         }
 
