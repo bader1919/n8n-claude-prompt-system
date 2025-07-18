@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generate Response Schema",
+  "description": "Schema for validating prompt generation responses",
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation was successful"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "Generated content",
+          "minLength": 1
+        },
+        "template": {
+          "type": "string",
+          "description": "Template used for generation"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider used for generation"
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "inputTokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "outputTokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "totalTokens": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["inputTokens", "outputTokens", "totalTokens"]
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated cost of the generation"
+        },
+        "responseTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Response time in milliseconds"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model used for generation"
+        }
+      },
+      "required": ["content", "template", "provider", "usage", "responseTime"],
+      "additionalProperties": false
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Response timestamp"
+    }
+  },
+  "required": ["success", "result"],
+  "additionalProperties": false
+}

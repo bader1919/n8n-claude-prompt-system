@@ -3,7 +3,8 @@
  * Test suite for error handling and input validation functionality
  */
 
-const { ErrorHandler, ValidationError, AuthenticationError } = require('../core/error_handler');
+const { ErrorHandler } = require('../core/error_handler');
+const { ValidationError, AuthenticationError } = require('../core/error_types');
 
 // Mock console methods to avoid noise during testing
 const originalConsoleError = console.error;
@@ -131,8 +132,8 @@ describe('ErrorHandler', () => {
             const error = new AuthenticationError('Invalid credentials');
             const result = errorHandler.handleError(error);
 
-            expect(result.message).toBe('Authentication failed');
-            expect(result.type).toBe('auth_error');
+            expect(result.message).toBe('Authentication required');
+            expect(result.type).toBe('authentication_error');
         });
 
         test('should handle unknown errors', () => {

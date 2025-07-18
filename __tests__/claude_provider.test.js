@@ -4,7 +4,7 @@
  */
 
 const ClaudeProvider = require('../providers/claude_provider');
-const { ValidationError } = require('../core/error_handler');
+const { ValidationError } = require('../core/error_types');
 
 // Mock axios to avoid making real API calls
 jest.mock('axios');

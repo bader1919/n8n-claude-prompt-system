@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generate Request Schema",
+  "description": "Schema for validating prompt generation requests",
+  "type": "object",
+  "properties": {
+    "template": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$",
+      "description": "Template identifier (e.g., 'business/email_draft')",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "variables": {
+      "type": "object",
+      "description": "Variables to substitute in the template",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "oneOf": [
+            { "type": "string", "maxLength": 10000 },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "array", "maxItems": 100 },
+            { "type": "object", "maxProperties": 50 }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "maxProperties": 50
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["claude", "openai", "local"],
+      "description": "AI provider to use for generation",
+      "default": "claude"
+    },
+    "options": {
+      "type": "object",
+      "description": "Provider-specific options",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192,
+          "description": "Maximum tokens to generate"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Sampling temperature"
+        },
+        "systemPrompt": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "System prompt for the model"
+        },
+        "stopSequences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "maxItems": 4,
+          "description": "Sequences to stop generation"
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 120000,
+          "description": "Request timeout in milliseconds"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["template"],
+  "additionalProperties": false
+}

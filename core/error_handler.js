@@ -8,10 +8,27 @@
  * - Template injection protection
  * - Request validation middleware
  * - Logging and monitoring
+ * - Integration with new error types and validation systems
  *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
+
+const { 
+    BaseError, 
+    ValidationError, 
+    AuthenticationError, 
+    AuthorizationError,
+    RateLimitError,
+    ExternalServiceError,
+    CircuitBreakerError,
+    TimeoutError,
+    NotFoundError,
+    ConfigurationError,
+    TemplateError,
+    ProviderError
+} = require('./error_types');
+const { schemaValidator } = require('./schema_validator');
 
 class ErrorHandler {
     constructor(options = {}) {
@@ -144,7 +161,8 @@ class ErrorHandler {
             url: req?.url,
             method: req?.method,
             userAgent: req?.headers['user-agent'],
-            ip: req?.ip
+            ip: req?.ip,
+            type: error.name || 'Error'
         };
 
         this.logError(logEntry);
@@ -164,34 +182,69 @@ class ErrorHandler {
      * Sanitize error response to prevent information disclosure
      */
     sanitizeErrorResponse(error, errorId) {
+        const timestamp = new Date().toISOString();
+
+        // If error is already a BaseError instance, use its user error method
+        if (error instanceof BaseError) {
+            const userError = error.toUserError();
+            userError.errorId = errorId;
+            return userError;
+        }
+
+        // Handle legacy error types and unknown errors
         const sanitizedResponse = {
             error: true,
             errorId,
-            timestamp: new Date().toISOString()
+            timestamp,
+            retryable: false
         };
 
         // Map internal errors to safe external messages
         if (error.name === 'ValidationError') {
             sanitizedResponse.message = 'Invalid input provided';
             sanitizedResponse.type = 'validation_error';
+            sanitizedResponse.code = 'VALIDATION_FAILED';
+            if (error.details) {
+                sanitizedResponse.details = error.details;
+            }
         } else if (error.name === 'AuthenticationError') {
             sanitizedResponse.message = 'Authentication failed';
-            sanitizedResponse.type = 'auth_error';
+            sanitizedResponse.type = 'authentication_error';
+            sanitizedResponse.code = 'AUTHENTICATION_FAILED';
+        } else if (error.name === 'AuthorizationError') {
+            sanitizedResponse.message = 'Access denied';
+            sanitizedResponse.type = 'authorization_error';
+            sanitizedResponse.code = 'AUTHORIZATION_FAILED';
         } else if (error.name === 'RateLimitError') {
             sanitizedResponse.message = 'Rate limit exceeded';
             sanitizedResponse.type = 'rate_limit_error';
+            sanitizedResponse.code = 'RATE_LIMIT_EXCEEDED';
+            sanitizedResponse.retryable = true;
+            if (error.retryAfter) {
+                sanitizedResponse.retryAfter = error.retryAfter;
+            }
         } else if (error.code === 'ENOENT') {
             sanitizedResponse.message = 'Resource not found';
             sanitizedResponse.type = 'not_found_error';
+            sanitizedResponse.code = 'RESOURCE_NOT_FOUND';
         } else if (error.response?.status >= 400 && error.response?.status < 500) {
             sanitizedResponse.message = 'Client error occurred';
             sanitizedResponse.type = 'client_error';
+            sanitizedResponse.code = 'CLIENT_ERROR';
         } else if (error.response?.status >= 500) {
             sanitizedResponse.message = 'External service error';
-            sanitizedResponse.type = 'service_error';
+            sanitizedResponse.type = 'external_service_error';
+            sanitizedResponse.code = 'EXTERNAL_SERVICE_ERROR';
+            sanitizedResponse.retryable = true;
+        } else if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            sanitizedResponse.message = 'Network error occurred';
+            sanitizedResponse.type = 'timeout_error';
+            sanitizedResponse.code = error.code;
+            sanitizedResponse.retryable = true;
         } else {
             sanitizedResponse.message = 'An internal error occurred';
             sanitizedResponse.type = 'internal_error';
+            sanitizedResponse.code = 'INTERNAL_ERROR';
         }
 
         // Include stack trace only in development
@@ -234,12 +287,31 @@ class ErrorHandler {
 
             // Determine HTTP status code
             let statusCode = 500;
-            if (handledError.type === 'validation_error') statusCode = 400;
-            else if (handledError.type === 'auth_error') statusCode = 401;
-            else if (handledError.type === 'not_found_error') statusCode = 404;
-            else if (handledError.type === 'rate_limit_error') statusCode = 429;
-            else if (handledError.type === 'client_error') statusCode = 400;
-            else if (handledError.type === 'service_error') statusCode = 502;
+            if (error instanceof BaseError) {
+                statusCode = error.statusCode;
+            } else {
+                // Legacy status code mapping
+                if (handledError.type === 'validation_error') statusCode = 400;
+                else if (handledError.type === 'authentication_error') statusCode = 401;
+                else if (handledError.type === 'authorization_error') statusCode = 403;
+                else if (handledError.type === 'not_found_error') statusCode = 404;
+                else if (handledError.type === 'rate_limit_error') statusCode = 429;
+                else if (handledError.type === 'client_error') statusCode = 400;
+                else if (handledError.type === 'external_service_error') statusCode = 502;
+                else if (handledError.type === 'circuit_breaker_error') statusCode = 503;
+                else if (handledError.type === 'timeout_error') statusCode = 408;
+            }
+
+            // Validate error response against schema
+            const validation = schemaValidator.validateResponse(handledError, 'error_response');
+            if (!validation.valid) {
+                console.error('Error response validation failed:', validation.error);
+            }
+
+            // Set additional headers for specific error types
+            if (handledError.type === 'rate_limit_error' && handledError.retryAfter) {
+                res.set('Retry-After', handledError.retryAfter.toString());
+            }
 
             res.status(statusCode).json(handledError);
         };
@@ -251,21 +323,30 @@ class ErrorHandler {
     validationMiddleware() {
         return (req, res, next) => {
             try {
-                const errors = this.validateApiRequest(req);
+                // Use schema validator for comprehensive validation
+                schemaValidator.validateApiRequest(req, res, (error) => {
+                    if (error) {
+                        return next(error);
+                    }
+                    
+                    // Additional legacy validations
+                    const errors = this.validateApiRequest(req);
+                    if (errors.length > 0) {
+                        const validationError = new ValidationError(
+                            'Validation failed', 
+                            errors,
+                            { code: 'LEGACY_VALIDATION_FAILED' }
+                        );
+                        throw validationError;
+                    }
 
-                if (errors.length > 0) {
-                    const validationError = new Error('Validation failed');
-                    validationError.name = 'ValidationError';
-                    validationError.details = errors;
-                    throw validationError;
-                }
+                    // Sanitize request body
+                    if (req.body) {
+                        req.body = this.sanitizeRequestBody(req.body);
+                    }
 
-                // Sanitize request body
-                if (req.body) {
-                    req.body = this.sanitizeRequestBody(req.body);
-                }
-
-                next();
+                    next();
+                });
             } catch (error) {
                 next(error);
             }
@@ -301,32 +382,6 @@ class ErrorHandler {
     }
 }
 
-// Custom error types
-class ValidationError extends Error {
-    constructor(message, details = []) {
-        super(message);
-        this.name = 'ValidationError';
-        this.details = details;
-    }
-}
-
-class AuthenticationError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'AuthenticationError';
-    }
-}
-
-class RateLimitError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'RateLimitError';
-    }
-}
-
 module.exports = {
-    ErrorHandler,
-    ValidationError,
-    AuthenticationError,
-    RateLimitError
+    ErrorHandler
 };

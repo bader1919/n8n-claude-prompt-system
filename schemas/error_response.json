@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Error Response Schema",
+  "description": "Schema for standardized error responses",
+  "type": "object",
+  "properties": {
+    "error": {
+      "type": "boolean",
+      "const": true,
+      "description": "Indicates this is an error response"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "validation_error",
+        "authentication_error", 
+        "authorization_error",
+        "not_found_error",
+        "rate_limit_error",
+        "external_service_error",
+        "circuit_breaker_error",
+        "timeout_error",
+        "configuration_error",
+        "template_error",
+        "provider_error",
+        "internal_error"
+      ],
+      "description": "Error type category"
+    },
+    "message": {
+      "type": "string",
+      "description": "User-friendly error message",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "code": {
+      "type": "string",
+      "description": "Internal error code for debugging",
+      "pattern": "^[A-Z_]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Error timestamp"
+    },
+    "errorId": {
+      "type": "string",
+      "description": "Unique error identifier for tracking",
+      "pattern": "^err_[0-9]+_[a-z0-9]+$"
+    },
+    "retryable": {
+      "type": "boolean",
+      "description": "Whether the operation can be retried"
+    },
+    "retryAfter": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds to wait before retry (for rate limits)"
+    },
+    "details": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional error details (for validation errors)"
+    },
+    "service": {
+      "type": "string",
+      "description": "Service that caused the error"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider that caused the error"
+    },
+    "templateName": {
+      "type": "string",
+      "description": "Template name (for template errors)"
+    },
+    "resource": {
+      "type": "string",
+      "description": "Resource identifier (for not found errors)"
+    },
+    "circuitState": {
+      "type": "string",
+      "enum": ["open", "closed", "half-open"],
+      "description": "Circuit breaker state"
+    },
+    "timeout": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Timeout value in milliseconds"
+    }
+  },
+  "required": ["error", "type", "message", "timestamp"],
+  "additionalProperties": false
+}

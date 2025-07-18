@@ -21,7 +21,15 @@ const { body, validationResult } = require('express-validator');
 require('dotenv').config();
 
 const TemplateManager = require('./core/template_manager');
-const { ErrorHandler, ValidationError, AuthenticationError } = require('./core/error_handler');
+const { ErrorHandler } = require('./core/error_handler');
+const { 
+    ValidationError, 
+    AuthenticationError,
+    NotFoundError,
+    ProviderError 
+} = require('./core/error_types');
+const { schemaValidator } = require('./core/schema_validator');
+const { circuitBreakerManager } = require('./core/circuit_breaker');
 const HealthMonitor = require('./core/health_monitor');
 const ClaudeProvider = require('./providers/claude_provider');
 const config = require('./config/basic-config.json');
@@ -59,14 +67,31 @@ class ApiServer {
             }
         }, { critical: true });
 
-        // Register provider health checks
+        // Register provider health checks with circuit breaker status
         for (const [name, provider] of this.providers.entries()) {
             this.healthMonitor.registerService(`provider_${name}`, async () => {
-                if (provider.testConnection) {
+                try {
                     const result = await provider.testConnection();
-                    return { healthy: result.success, ...result };
+                    
+                    // Get circuit breaker status if available
+                    const circuitBreakerName = `${name}-${provider.apiKey?.slice(-8) || 'default'}`;
+                    const circuitBreakerStatus = circuitBreakerManager.getCircuitBreaker(circuitBreakerName)?.getStatus();
+                    
+                    return { 
+                        healthy: result.success, 
+                        ...result,
+                        circuitBreaker: circuitBreakerStatus ? {
+                            state: circuitBreakerStatus.state,
+                            failureRate: circuitBreakerStatus.metrics.failureRate
+                        } : null
+                    };
+                } catch (error) {
+                    return { 
+                        healthy: false, 
+                        error: error.message,
+                        errorType: error.name
+                    };
                 }
-                return { healthy: true };
             }, { critical: name === config.providers.defaultProvider });
         }
 
@@ -141,9 +166,9 @@ class ApiServer {
         this.app.locals.healthMonitor = this.healthMonitor;
         this.app.use(this.healthMonitor.requestTrackingMiddleware());
 
-        // Request validation middleware
+        // Request validation middleware with schema validation
         if (config.security.enableInputSanitization) {
-            this.app.use(this.errorHandler.validationMiddleware());
+            this.app.use(schemaValidator.getValidationMiddleware());
         }
 
         // Default route (before authentication middleware)
@@ -180,14 +205,20 @@ class ApiServer {
         const apiKey = req.headers['x-api-key'] || req.headers.authorization?.replace('Bearer ', '');
 
         if (!apiKey) {
-            return next(new AuthenticationError('API key required'));
+            return next(new AuthenticationError('API key required', {
+                code: 'MISSING_API_KEY',
+                userMessage: 'API key is required for authentication'
+            }));
         }
 
         // Basic API key validation (in production, use proper key management)
         const validApiKeys = process.env.API_KEYS?.split(',') || ['test-api-key'];
 
         if (!validApiKeys.includes(apiKey)) {
-            return next(new AuthenticationError('Invalid API key'));
+            return next(new AuthenticationError('Invalid API key', {
+                code: 'INVALID_API_KEY',
+                userMessage: 'The provided API key is not valid'
+            }));
         }
 
         // Add user context to request
@@ -230,12 +261,18 @@ class ApiServer {
     }
 
     /**
-     * Health check endpoint
+     * Health check endpoint with circuit breaker status
      */
     async healthCheck(req, res) {
         try {
             const health = this.healthMonitor.getHealthStatus();
-            const statusCode = health.status === 'healthy' ? 200 :
+            
+            // Add circuit breaker status
+            const circuitBreakerStatus = circuitBreakerManager.getHealthStatus();
+            health.circuitBreakers = circuitBreakerStatus.circuitBreakers;
+            health.circuitBreakersHealthy = circuitBreakerStatus.healthy;
+            
+            const statusCode = health.status === 'healthy' && circuitBreakerStatus.healthy ? 200 :
                 health.status === 'degraded' ? 200 : 503;
 
             res.status(statusCode).json(health);
@@ -309,9 +346,9 @@ class ApiServer {
             const template = await this.templateManager.getTemplate(templateKey);
 
             if (!template) {
-                return res.status(404).json({
-                    error: true,
-                    message: 'Template not found'
+                throw new NotFoundError('Template not found', {
+                    resource: templateKey,
+                    userMessage: `Template '${templateKey}' was not found`
                 });
             }
 
@@ -332,7 +369,9 @@ class ApiServer {
             // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                throw new ValidationError('Validation failed', errors.array());
+                throw new ValidationError('Validation failed', errors.array(), {
+                    code: 'REQUEST_VALIDATION_FAILED'
+                });
             }
 
             const { template, variables = {}, provider = 'claude', options = {} } = req.body;
@@ -340,13 +379,20 @@ class ApiServer {
             // Get provider
             const providerInstance = this.providers.get(provider);
             if (!providerInstance) {
-                throw new ValidationError(`Provider '${provider}' not available`);
+                throw new ProviderError(`Provider '${provider}' not available`, {
+                    code: 'PROVIDER_NOT_AVAILABLE',
+                    provider,
+                    userMessage: `The requested provider '${provider}' is not currently available`
+                });
             }
 
             // Get template content
             const templateData = await this.templateManager.getTemplate(template);
             if (!templateData) {
-                throw new ValidationError(`Template '${template}' not found`);
+                throw new NotFoundError(`Template '${template}' not found`, {
+                    resource: template,
+                    userMessage: `The requested template '${template}' was not found`
+                });
             }
 
             // Replace variables in template
@@ -369,7 +415,8 @@ class ApiServer {
                 cost: result.cost || 0
             });
 
-            res.json({
+            // Validate and sanitize response
+            const responseData = {
                 success: true,
                 result: {
                     content: result.content,
@@ -379,8 +426,17 @@ class ApiServer {
                     cost: result.cost,
                     responseTime,
                     model: result.model
-                }
-            });
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            // Validate response against schema
+            const validation = schemaValidator.validateResponse(responseData, 'generate_response');
+            if (!validation.valid) {
+                console.warn('Response validation failed:', validation.error);
+            }
+
+            res.json(responseData);
 
         } catch (error) {
             // Update template usage for failed generation
@@ -422,7 +478,11 @@ class ApiServer {
             const providerInstance = this.providers.get(provider);
 
             if (!providerInstance) {
-                throw new ValidationError(`Provider '${provider}' not available`);
+                throw new ProviderError(`Provider '${provider}' not available`, {
+                    code: 'PROVIDER_NOT_AVAILABLE',
+                    provider,
+                    userMessage: `The requested provider '${provider}' is not currently available`
+                });
             }
 
             const result = await providerInstance.testConnection();
@@ -437,11 +497,12 @@ class ApiServer {
     }
 
     /**
-     * Get system metrics
+     * Get system metrics with circuit breaker information
      */
     getMetrics(req, res) {
         const templateStats = this.templateManager.getTemplateStats();
         const healthMetrics = this.healthMonitor.getMetrics();
+        const circuitBreakerStatus = circuitBreakerManager.getAllStatus();
 
         res.json({
             success: true,
@@ -450,6 +511,7 @@ class ApiServer {
                 memory: healthMetrics.system?.memory || {},
                 templates: templateStats,
                 providers: Array.from(this.providers.keys()),
+                circuitBreakers: circuitBreakerStatus,
                 timestamp: new Date().toISOString()
             }
         });
