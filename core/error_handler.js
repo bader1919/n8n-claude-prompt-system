@@ -1,14 +1,14 @@
 /**
  * Error Handler - Comprehensive error handling and input sanitization
  * Part of the n8n Claude Prompt System
- * 
+ *
  * Features:
  * - Input validation and sanitization
  * - Secure error message handling
  * - Template injection protection
  * - Request validation middleware
  * - Logging and monitoring
- * 
+ *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
@@ -46,7 +46,7 @@ class ErrorHandler {
      */
     validateTemplateVariables(variables) {
         const errors = [];
-        
+
         if (!variables || typeof variables !== 'object') {
             errors.push('Variables must be a valid object');
             return errors;
@@ -63,7 +63,7 @@ class ErrorHandler {
                 if (value.length > 10000) {
                     errors.push(`Variable ${key} exceeds maximum length of 10000 characters`);
                 }
-                
+
                 // Check for potential injection patterns
                 if (this.containsSuspiciousPatterns(value)) {
                     errors.push(`Variable ${key} contains potentially unsafe content`);
@@ -103,7 +103,7 @@ class ErrorHandler {
             if (!req.body.template) {
                 errors.push('Template is required for generation');
             }
-            
+
             if (req.body.variables) {
                 const variableErrors = this.validateTemplateVariables(req.body.variables);
                 errors.push(...variableErrors);
@@ -124,7 +124,7 @@ class ErrorHandler {
     handleError(error, req = null) {
         const timestamp = new Date().toISOString();
         const errorId = this.generateErrorId();
-        
+
         // Log full error details internally
         const logEntry = {
             errorId,
@@ -136,7 +136,7 @@ class ErrorHandler {
             userAgent: req?.headers['user-agent'],
             ip: req?.ip
         };
-        
+
         this.logError(logEntry);
 
         // Return sanitized error for client
@@ -197,21 +197,21 @@ class ErrorHandler {
      */
     logError(logEntry) {
         const logMessage = JSON.stringify(logEntry, null, 2);
-        
+
         switch (this.logLevel) {
-            case 'debug':
-                console.debug(`[DEBUG] ${logMessage}`);
-                break;
-            case 'info':
-                console.info(`[INFO] ${logMessage}`);
-                break;
-            case 'warn':
-                console.warn(`[WARN] ${logMessage}`);
-                break;
-            case 'error':
-            default:
-                console.error(`[ERROR] ${logMessage}`);
-                break;
+        case 'debug':
+            console.debug(`[DEBUG] ${logMessage}`);
+            break;
+        case 'info':
+            console.info(`[INFO] ${logMessage}`);
+            break;
+        case 'warn':
+            console.warn(`[WARN] ${logMessage}`);
+            break;
+        case 'error':
+        default:
+            console.error(`[ERROR] ${logMessage}`);
+            break;
         }
     }
 
@@ -219,9 +219,9 @@ class ErrorHandler {
      * Express middleware for error handling
      */
     expressMiddleware() {
-        return (error, req, res, next) => {
+        return (error, req, res, _next) => {
             const handledError = this.handleError(error, req);
-            
+
             // Determine HTTP status code
             let statusCode = 500;
             if (handledError.type === 'validation_error') statusCode = 400;
@@ -230,7 +230,7 @@ class ErrorHandler {
             else if (handledError.type === 'rate_limit_error') statusCode = 429;
             else if (handledError.type === 'client_error') statusCode = 400;
             else if (handledError.type === 'service_error') statusCode = 502;
-            
+
             res.status(statusCode).json(handledError);
         };
     }
@@ -242,7 +242,7 @@ class ErrorHandler {
         return (req, res, next) => {
             try {
                 const errors = this.validateApiRequest(req);
-                
+
                 if (errors.length > 0) {
                     const validationError = new Error('Validation failed');
                     validationError.name = 'ValidationError';

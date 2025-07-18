@@ -18,7 +18,7 @@ describe('API Server Integration Tests', () => {
         // Set test environment variables
         process.env.NODE_ENV = 'test';
         process.env.API_KEYS = 'test-api-key,another-test-key';
-        
+
         server = new ApiServer();
         app = server.app;
     });
@@ -140,7 +140,7 @@ describe('API Server Integration Tests', () => {
                 .set('x-api-key', 'test-api-key')
                 .set('Content-Type', 'application/json')
                 .send(validInput);
-            
+
             // If it gets past validation, that's a success for this test
         });
     });
@@ -185,7 +185,7 @@ describe('API Server Integration Tests', () => {
 
             const responses = await Promise.all(promises);
             const rateLimitedResponses = responses.filter(res => res.status === 429);
-            
+
             // Should have some rate-limited responses
             expect(rateLimitedResponses.length).toBeGreaterThan(0);
         }, 10000); // Increase timeout for this test

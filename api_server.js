@@ -1,14 +1,14 @@
 /**
  * API Server - Express.js server with authentication and security
  * Part of the n8n Claude Prompt System
- * 
+ *
  * Features:
  * - Authentication middleware
  * - Rate limiting and security headers
  * - Template management endpoints
  * - Health checks and monitoring
  * - Input validation and sanitization
- * 
+ *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
@@ -22,6 +22,7 @@ require('dotenv').config();
 
 const TemplateManager = require('./core/template_manager');
 const { ErrorHandler, ValidationError, AuthenticationError } = require('./core/error_handler');
+const HealthMonitor = require('./core/health_monitor');
 const ClaudeProvider = require('./providers/claude_provider');
 const config = require('./config/basic-config.json');
 
@@ -35,16 +36,43 @@ class ApiServer {
         });
         this.templateManager = new TemplateManager();
         this.providers = new Map();
-        
+        this.healthMonitor = new HealthMonitor();
+
         this.initializeProviders();
+        this.setupHealthChecks();
         this.setupMiddleware();
         this.setupRoutes();
         this.setupErrorHandling();
     }
 
     /**
-     * Initialize LLM providers
+     * Setup health checks for monitoring
      */
+    setupHealthChecks() {
+        // Register template manager health check
+        this.healthMonitor.registerService('templateManager', async () => {
+            try {
+                const stats = this.templateManager.getTemplateStats();
+                return { healthy: true, templates: stats.totalTemplates };
+            } catch (error) {
+                return { healthy: false, error: error.message };
+            }
+        }, { critical: true });
+
+        // Register provider health checks
+        for (const [name, provider] of this.providers.entries()) {
+            this.healthMonitor.registerService(`provider_${name}`, async () => {
+                if (provider.testConnection) {
+                    const result = await provider.testConnection();
+                    return { healthy: result.success, ...result };
+                }
+                return { healthy: true };
+            }, { critical: name === config.providers.defaultProvider });
+        }
+
+        // Start monitoring
+        this.healthMonitor.start();
+    }
     initializeProviders() {
         // Initialize Claude provider if API key is available
         const claudeApiKey = process.env.ANTHROPIC_API_KEY;
@@ -109,6 +137,10 @@ class ApiServer {
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+        // Request tracking middleware
+        this.app.locals.healthMonitor = this.healthMonitor;
+        this.app.use(this.healthMonitor.requestTrackingMiddleware());
+
         // Request validation middleware
         if (config.security.enableInputSanitization) {
             this.app.use(this.errorHandler.validationMiddleware());
@@ -146,14 +178,14 @@ class ApiServer {
         }
 
         const apiKey = req.headers['x-api-key'] || req.headers.authorization?.replace('Bearer ', '');
-        
+
         if (!apiKey) {
             return next(new AuthenticationError('API key required'));
         }
 
         // Basic API key validation (in production, use proper key management)
         const validApiKeys = process.env.API_KEYS?.split(',') || ['test-api-key'];
-        
+
         if (!validApiKeys.includes(apiKey)) {
             return next(new AuthenticationError('Invalid API key'));
         }
@@ -169,6 +201,10 @@ class ApiServer {
     setupRoutes() {
         // Health check endpoint
         this.app.get('/api/health', this.healthCheck.bind(this));
+
+        // Additional health endpoints
+        this.app.get('/api/health/ready', this.readinessCheck.bind(this));
+        this.app.get('/api/health/live', this.livenessCheck.bind(this));
 
         // Template management endpoints
         this.app.get('/api/templates', this.getTemplates.bind(this));
@@ -198,28 +234,35 @@ class ApiServer {
      */
     async healthCheck(req, res) {
         try {
-            const health = {
-                status: 'healthy',
-                timestamp: new Date().toISOString(),
-                uptime: process.uptime(),
-                memory: process.memoryUsage(),
-                version: '1.0.0',
-                services: {
-                    templateManager: this.templateManager ? 'healthy' : 'unhealthy',
-                    providers: Array.from(this.providers.keys()).reduce((acc, key) => {
-                        acc[key] = 'healthy';
-                        return acc;
-                    }, {})
-                }
-            };
+            const health = this.healthMonitor.getHealthStatus();
+            const statusCode = health.status === 'healthy' ? 200 :
+                health.status === 'degraded' ? 200 : 503;
 
-            res.json(health);
+            res.status(statusCode).json(health);
         } catch (error) {
             res.status(500).json({
                 status: 'unhealthy',
-                error: error.message
+                error: error.message,
+                timestamp: new Date().toISOString()
             });
         }
+    }
+
+    /**
+     * Readiness check endpoint (for load balancers)
+     */
+    readinessCheck(req, res) {
+        const readiness = this.healthMonitor.getReadinessStatus();
+        const statusCode = readiness.ready ? 200 : 503;
+        res.status(statusCode).json(readiness);
+    }
+
+    /**
+     * Liveness check endpoint (for container orchestration)
+     */
+    livenessCheck(req, res) {
+        const liveness = this.healthMonitor.getLivenessStatus();
+        res.status(200).json(liveness);
     }
 
     /**
@@ -264,7 +307,7 @@ class ApiServer {
             const { category, name } = req.params;
             const templateKey = `${category}/${name}`;
             const template = await this.templateManager.getTemplate(templateKey);
-            
+
             if (!template) {
                 return res.status(404).json({
                     error: true,
@@ -377,7 +420,7 @@ class ApiServer {
         try {
             const { provider } = req.params;
             const providerInstance = this.providers.get(provider);
-            
+
             if (!providerInstance) {
                 throw new ValidationError(`Provider '${provider}' not available`);
             }
@@ -398,12 +441,12 @@ class ApiServer {
      */
     getMetrics(req, res) {
         const templateStats = this.templateManager.getTemplateStats();
-        
+        const healthMetrics = this.healthMonitor.getMetrics();
+
         res.json({
             success: true,
             metrics: {
-                uptime: process.uptime(),
-                memory: process.memoryUsage(),
+                ...healthMetrics,
                 templates: templateStats,
                 providers: Array.from(this.providers.keys()),
                 timestamp: new Date().toISOString()

@@ -1,7 +1,7 @@
 /**
  * Version Manager - Semantic versioning and template lifecycle management
  * Part of the n8n Claude Prompt System
- * 
+ *
  * Features:
  * - Semantic versioning (major.minor.patch)
  * - Template deprecation policies
@@ -9,7 +9,7 @@
  * - Rollback capabilities
  * - Version history tracking
  * - Backward compatibility checks
- * 
+ *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
@@ -29,7 +29,7 @@ class VersionManager {
             major: 90 * 24 * 60 * 60 * 1000, // 90 days
             patch: 7 * 24 * 60 * 60 * 1000   // 7 days
         };
-        
+
         this.init();
     }
 
@@ -84,7 +84,7 @@ class VersionManager {
                 schema_version: '1.0.0',
                 versions: Object.fromEntries(this.versions)
             };
-            
+
             await fs.writeFile(this.versionsFile, JSON.stringify(versionData, null, 2));
             console.log('Version history saved successfully');
         } catch (error) {
@@ -100,7 +100,7 @@ class VersionManager {
         if (!match) {
             throw new Error(`Invalid version format: ${versionString}`);
         }
-        
+
         const parts = versionString.split('-')[0].split('.');
         return {
             major: parseInt(parts[0]),
@@ -118,14 +118,14 @@ class VersionManager {
         if (v1.major !== v2.major) return v1.major - v2.major;
         if (v1.minor !== v2.minor) return v1.minor - v2.minor;
         if (v1.patch !== v2.patch) return v1.patch - v2.patch;
-        
+
         // Handle prerelease versions
         if (v1.prerelease && !v2.prerelease) return -1;
         if (!v1.prerelease && v2.prerelease) return 1;
         if (v1.prerelease && v2.prerelease) {
             return v1.prerelease.localeCompare(v2.prerelease);
         }
-        
+
         return 0;
     }
 
@@ -134,16 +134,16 @@ class VersionManager {
      */
     getNextVersion(currentVersion, changeType) {
         const current = this.parseVersion(currentVersion);
-        
+
         switch (changeType) {
-            case 'major':
-                return `${current.major + 1}.0.0`;
-            case 'minor':
-                return `${current.major}.${current.minor + 1}.0`;
-            case 'patch':
-                return `${current.major}.${current.minor}.${current.patch + 1}`;
-            default:
-                throw new Error(`Invalid change type: ${changeType}`);
+        case 'major':
+            return `${current.major + 1}.0.0`;
+        case 'minor':
+            return `${current.major}.${current.minor + 1}.0`;
+        case 'patch':
+            return `${current.major}.${current.minor}.${current.patch + 1}`;
+        default:
+            throw new Error(`Invalid change type: ${changeType}`);
         }
     }
 
@@ -153,25 +153,25 @@ class VersionManager {
     determineChangeType(oldContent, newContent) {
         const oldVariables = this.extractVariables(oldContent);
         const newVariables = this.extractVariables(newContent);
-        
+
         // Check for breaking changes (removed variables)
         const removedVariables = oldVariables.filter(v => !newVariables.includes(v));
         if (removedVariables.length > 0) {
             return 'major';
         }
-        
+
         // Check for new variables (minor change)
         const addedVariables = newVariables.filter(v => !oldVariables.includes(v));
         if (addedVariables.length > 0) {
             return 'minor';
         }
-        
+
         // Check for significant content changes
         const contentDiff = this.calculateContentDifference(oldContent, newContent);
         if (contentDiff > 0.3) { // 30% content change
             return 'minor';
         }
-        
+
         return 'patch';
     }
 
@@ -182,13 +182,13 @@ class VersionManager {
         const variablePattern = /\{\{(\w+)\}\}/g;
         const variables = [];
         let match;
-        
+
         while ((match = variablePattern.exec(content)) !== null) {
             if (!variables.includes(match[1])) {
                 variables.push(match[1]);
             }
         }
-        
+
         return variables;
     }
 
@@ -198,13 +198,13 @@ class VersionManager {
     calculateContentDifference(oldContent, newContent) {
         const oldWords = oldContent.split(/\s+/);
         const newWords = newContent.split(/\s+/);
-        
+
         const oldSet = new Set(oldWords);
         const newSet = new Set(newWords);
-        
+
         const intersection = new Set([...oldSet].filter(x => newSet.has(x)));
         const union = new Set([...oldSet, ...newSet]);
-        
+
         return 1 - (intersection.size / union.size);
     }
 
@@ -217,10 +217,10 @@ class VersionManager {
             current: null,
             deprecated: []
         };
-        
+
         let newVersion;
         let changeType = 'patch';
-        
+
         if (templateVersions.current) {
             const currentVersionData = templateVersions.versions.find(v => v.version === templateVersions.current);
             if (currentVersionData) {
@@ -232,12 +232,12 @@ class VersionManager {
         } else {
             newVersion = '1.0.0';
         }
-        
+
         // Create backup of current version
         if (templateVersions.current) {
             await this.createBackup(templateKey, templateVersions.current);
         }
-        
+
         // Create version entry
         const versionData = {
             version: newVersion,
@@ -257,25 +257,25 @@ class VersionManager {
                 migrationRequired: changeType === 'major'
             }
         };
-        
+
         // Add to versions array
         templateVersions.versions.push(versionData);
-        
+
         // Update current version
         templateVersions.current = newVersion;
-        
+
         // Update versions map
         this.versions.set(templateKey, templateVersions);
-        
+
         // Save to file
         await this.saveVersions();
-        
+
         console.log(`Created ${changeType} version ${newVersion} for template ${templateKey}`);
-        
+
         return {
             version: newVersion,
             changeType: changeType,
-            previousVersion: templateVersions.versions.length > 1 ? 
+            previousVersion: templateVersions.versions.length > 1 ?
                 templateVersions.versions[templateVersions.versions.length - 2].version : null
         };
     }
@@ -288,7 +288,7 @@ class VersionManager {
         if (!templateVersions) {
             return null;
         }
-        
+
         const versionData = templateVersions.versions.find(v => v.version === version);
         return versionData || null;
     }
@@ -301,7 +301,7 @@ class VersionManager {
         if (!templateVersions || !templateVersions.current) {
             return null;
         }
-        
+
         return this.getVersion(templateKey, templateVersions.current);
     }
 
@@ -313,7 +313,7 @@ class VersionManager {
         if (!templateVersions) {
             return [];
         }
-        
+
         return templateVersions.versions.sort((a, b) => {
             const vA = this.parseVersion(a.version);
             const vB = this.parseVersion(b.version);
@@ -329,33 +329,33 @@ class VersionManager {
         if (!templateVersions) {
             throw new Error(`Template ${templateKey} not found`);
         }
-        
+
         const versionData = templateVersions.versions.find(v => v.version === version);
         if (!versionData) {
             throw new Error(`Version ${version} not found for template ${templateKey}`);
         }
-        
+
         // Calculate deprecation date based on change type
         const deprecationPeriod = this.deprecationPolicies[versionData.changeType] || this.deprecationPolicies.patch;
         const deprecationDate = new Date(Date.now() + deprecationPeriod);
-        
+
         // Update version data
         versionData.compatibility.deprecationDate = deprecationDate.toISOString();
         versionData.compatibility.deprecationReason = reason;
-        
+
         // Add to deprecated list
         if (!templateVersions.deprecated.includes(version)) {
             templateVersions.deprecated.push(version);
         }
-        
+
         // Update versions map
         this.versions.set(templateKey, templateVersions);
-        
+
         // Save to file
         await this.saveVersions();
-        
+
         console.log(`Deprecated version ${version} of template ${templateKey}, will be removed on ${deprecationDate.toISOString()}`);
-        
+
         return {
             version: version,
             deprecationDate: deprecationDate.toISOString(),
@@ -371,21 +371,21 @@ class VersionManager {
         if (!versionData) {
             throw new Error(`Version ${version} not found for template ${templateKey}`);
         }
-        
+
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backupFileName = `${templateKey.replace('/', '_')}_v${version}_${timestamp}.json`;
         const backupPath = path.join(this.backupDir, backupFileName);
-        
+
         const backupData = {
             templateKey: templateKey,
             version: version,
             timestamp: timestamp,
             data: versionData
         };
-        
+
         await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2));
         console.log(`Created backup: ${backupFileName}`);
-        
+
         return backupPath;
     }
 
@@ -397,29 +397,29 @@ class VersionManager {
         if (!templateVersions) {
             throw new Error(`Template ${templateKey} not found`);
         }
-        
+
         const targetVersionData = templateVersions.versions.find(v => v.version === targetVersion);
         if (!targetVersionData) {
             throw new Error(`Version ${targetVersion} not found for template ${templateKey}`);
         }
-        
+
         // Create backup of current version
         if (templateVersions.current) {
             await this.createBackup(templateKey, templateVersions.current);
         }
-        
+
         // Update current version
         const previousVersion = templateVersions.current;
         templateVersions.current = targetVersion;
-        
+
         // Update versions map
         this.versions.set(templateKey, templateVersions);
-        
+
         // Save to file
         await this.saveVersions();
-        
+
         console.log(`Rolled back template ${templateKey} from ${previousVersion} to ${targetVersion}`);
-        
+
         return {
             templateKey: templateKey,
             previousVersion: previousVersion,
@@ -434,22 +434,22 @@ class VersionManager {
     getMigrationRequirements(templateKey, fromVersion, toVersion) {
         const fromVersionData = this.getVersion(templateKey, fromVersion);
         const toVersionData = this.getVersion(templateKey, toVersion);
-        
+
         if (!fromVersionData || !toVersionData) {
             return null;
         }
-        
+
         const fromVariables = fromVersionData.metadata.variables;
         const toVariables = toVersionData.metadata.variables;
-        
+
         const addedVariables = toVariables.filter(v => !fromVariables.includes(v));
         const removedVariables = fromVariables.filter(v => !toVariables.includes(v));
-        
+
         const fromParsed = this.parseVersion(fromVersion);
         const toParsed = this.parseVersion(toVersion);
-        const isBreaking = this.compareVersions(toParsed, fromParsed) > 0 && 
+        const isBreaking = this.compareVersions(toParsed, fromParsed) > 0 &&
                            (toParsed.major > fromParsed.major);
-        
+
         return {
             fromVersion: fromVersion,
             toVersion: toVersion,
@@ -467,7 +467,7 @@ class VersionManager {
      */
     generateMigrationSteps(addedVariables, removedVariables) {
         const steps = [];
-        
+
         if (removedVariables.length > 0) {
             steps.push({
                 type: 'remove',
@@ -476,7 +476,7 @@ class VersionManager {
                 required: true
             });
         }
-        
+
         if (addedVariables.length > 0) {
             steps.push({
                 type: 'add',
@@ -485,7 +485,7 @@ class VersionManager {
                 required: true
             });
         }
-        
+
         return steps;
     }
 
@@ -494,14 +494,14 @@ class VersionManager {
      */
     estimateMigrationEffort(addedVariables, removedVariables, isBreaking) {
         let effort = 0;
-        
+
         effort += addedVariables.length * 2; // 2 points per added variable
         effort += removedVariables.length * 3; // 3 points per removed variable
-        
+
         if (isBreaking) {
             effort += 10; // 10 points for breaking changes
         }
-        
+
         if (effort <= 5) return 'low';
         if (effort <= 15) return 'medium';
         return 'high';
@@ -521,23 +521,23 @@ class VersionManager {
             patchVersions: 0,
             templatesWithMultipleVersions: 0
         };
-        
+
         for (const templateKey of allTemplates) {
             const templateVersions = this.versions.get(templateKey);
             stats.totalVersions += templateVersions.versions.length;
             stats.deprecatedVersions += templateVersions.deprecated.length;
-            
+
             if (templateVersions.versions.length > 1) {
                 stats.templatesWithMultipleVersions++;
             }
-            
+
             for (const version of templateVersions.versions) {
                 if (version.changeType === 'major') stats.majorVersions++;
                 else if (version.changeType === 'minor') stats.minorVersions++;
                 else if (version.changeType === 'patch') stats.patchVersions++;
             }
         }
-        
+
         return stats;
     }
 
@@ -547,10 +547,10 @@ class VersionManager {
     async cleanupDeprecatedVersions() {
         const now = new Date();
         let cleanedCount = 0;
-        
+
         for (const [templateKey, templateVersions] of this.versions) {
             const versionsToRemove = [];
-            
+
             for (const version of templateVersions.versions) {
                 if (version.compatibility.deprecationDate) {
                     const deprecationDate = new Date(version.compatibility.deprecationDate);
@@ -559,28 +559,28 @@ class VersionManager {
                     }
                 }
             }
-            
+
             if (versionsToRemove.length > 0) {
                 // Remove versions
                 templateVersions.versions = templateVersions.versions.filter(
                     v => !versionsToRemove.includes(v.version)
                 );
-                
+
                 // Remove from deprecated list
                 templateVersions.deprecated = templateVersions.deprecated.filter(
                     v => !versionsToRemove.includes(v)
                 );
-                
+
                 cleanedCount += versionsToRemove.length;
                 console.log(`Cleaned up ${versionsToRemove.length} deprecated versions for ${templateKey}`);
             }
         }
-        
+
         if (cleanedCount > 0) {
             await this.saveVersions();
             console.log(`Cleaned up ${cleanedCount} deprecated versions total`);
         }
-        
+
         return cleanedCount;
     }
 }

@@ -113,7 +113,7 @@ describe('ErrorHandler', () => {
         test('should generate error ID and timestamp', () => {
             const error = new Error('Test error');
             const result = errorHandler.handleError(error);
-            
+
             expect(result).toHaveProperty('errorId');
             expect(result).toHaveProperty('timestamp');
             expect(result.error).toBe(true);
@@ -122,7 +122,7 @@ describe('ErrorHandler', () => {
         test('should sanitize validation errors', () => {
             const error = new ValidationError('Validation failed');
             const result = errorHandler.handleError(error);
-            
+
             expect(result.message).toBe('Invalid input provided');
             expect(result.type).toBe('validation_error');
         });
@@ -130,7 +130,7 @@ describe('ErrorHandler', () => {
         test('should sanitize authentication errors', () => {
             const error = new AuthenticationError('Invalid credentials');
             const result = errorHandler.handleError(error);
-            
+
             expect(result.message).toBe('Authentication failed');
             expect(result.type).toBe('auth_error');
         });
@@ -138,7 +138,7 @@ describe('ErrorHandler', () => {
         test('should handle unknown errors', () => {
             const error = new Error('Unknown error');
             const result = errorHandler.handleError(error);
-            
+
             expect(result.message).toBe('An internal error occurred');
             expect(result.type).toBe('internal_error');
         });
@@ -160,7 +160,7 @@ describe('ErrorHandler', () => {
             };
 
             const result = errorHandler.sanitizeRequestBody(body);
-            
+
             expect(result.variables.name).toBe('John');
             expect(result.variables.description).toBe('Safe content');
             expect(result.options.nested.value).toBe('');
@@ -172,7 +172,7 @@ describe('ErrorHandler', () => {
             };
 
             const result = errorHandler.sanitizeRequestBody(body);
-            
+
             expect(result.items[0]).toBe('good');
             expect(result.items[1]).toBe('safe item');
         });
@@ -182,7 +182,7 @@ describe('ErrorHandler', () => {
         test('should generate unique error IDs', () => {
             const id1 = errorHandler.generateErrorId();
             const id2 = errorHandler.generateErrorId();
-            
+
             expect(id1).not.toBe(id2);
             expect(id1).toMatch(/^err_\d+_[a-z0-9]+$/);
             expect(id2).toMatch(/^err_\d+_[a-z0-9]+$/);
@@ -194,7 +194,7 @@ describe('Custom Error Classes', () => {
     test('ValidationError should set correct properties', () => {
         const details = ['Field is required', 'Invalid format'];
         const error = new ValidationError('Validation failed', details);
-        
+
         expect(error.name).toBe('ValidationError');
         expect(error.message).toBe('Validation failed');
         expect(error.details).toEqual(details);
@@ -202,7 +202,7 @@ describe('Custom Error Classes', () => {
 
     test('AuthenticationError should set correct properties', () => {
         const error = new AuthenticationError('Invalid API key');
-        
+
         expect(error.name).toBe('AuthenticationError');
         expect(error.message).toBe('Invalid API key');
     });

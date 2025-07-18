@@ -78,7 +78,7 @@ describe('ClaudeProvider', () => {
 
         test('should sanitize input before sending to API', async () => {
             const maliciousPrompt = '<script>alert("xss")</script>Tell me a joke';
-            
+
             const mockResponse = {
                 status: 200,
                 data: {
@@ -160,7 +160,7 @@ describe('ClaudeProvider', () => {
             }
 
             const results = await Promise.all(promises);
-            const rateLimitErrors = results.filter(result => 
+            const rateLimitErrors = results.filter(result =>
                 result instanceof Error && result.name === 'RateLimitError'
             );
 
@@ -207,7 +207,7 @@ describe('ClaudeProvider', () => {
         test('should reject invalid API key formats', () => {
             const invalidProvider1 = new ClaudeProvider('invalid-key');
             const invalidProvider2 = new ClaudeProvider('sk-openai-123');
-            
+
             expect(invalidProvider1.validateApiKey()).toBe(false);
             expect(invalidProvider2.validateApiKey()).toBe(false);
         });
@@ -228,7 +228,7 @@ describe('ClaudeProvider', () => {
             axios.post.mockResolvedValue(mockResponse);
 
             const result = await claudeProvider.testConnection();
-            
+
             expect(result.success).toBe(true);
             expect(result).toHaveProperty('model');
             expect(result).toHaveProperty('responseTime');
@@ -239,7 +239,7 @@ describe('ClaudeProvider', () => {
             axios.post.mockRejectedValue(apiError);
 
             const result = await claudeProvider.testConnection();
-            
+
             expect(result.success).toBe(false);
             expect(result).toHaveProperty('error');
         });
