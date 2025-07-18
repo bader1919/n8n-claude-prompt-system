@@ -1,0 +1,94 @@
+{
+  "logging": {
+    "level": "info",
+    "environment": "development",
+    "logDir": "./logs",
+    "maxFiles": "30d",
+    "maxSize": "100m",
+    "enableConsole": true,
+    "enableFile": true,
+    "enableRotation": true,
+    "serviceName": "n8n-claude-prompt-system",
+    "version": "1.0.0"
+  },
+  "monitoring": {
+    "metricsInterval": 60000,
+    "enableAlerting": true,
+    "alertThresholds": {
+      "errorRate": 5.0,
+      "responseTime": 5000,
+      "memoryUsage": 85,
+      "cpuUsage": 80,
+      "diskUsage": 90
+    },
+    "retentionPeriod": 86400000
+  },
+  "security": {
+    "logAuthAttempts": true,
+    "logSecurityEvents": true,
+    "logInputValidation": true,
+    "logRateLimiting": true,
+    "sensitiveFields": [
+      "password",
+      "secret",
+      "token",
+      "key",
+      "apikey",
+      "api_key",
+      "authorization",
+      "auth",
+      "bearer",
+      "cookie",
+      "session",
+      "x-api-key",
+      "anthropic_api_key",
+      "openai_api_key"
+    ]
+  },
+  "privacy": {
+    "enableGdprCompliance": true,
+    "sanitizeLogs": true,
+    "maxLogFieldLength": 1000,
+    "redactSensitiveData": true
+  },
+  "integration": {
+    "elk": {
+      "enabled": false,
+      "endpoint": "",
+      "index": "n8n-claude-logs"
+    },
+    "splunk": {
+      "enabled": false,
+      "endpoint": "",
+      "token": ""
+    },
+    "prometheus": {
+      "enabled": false,
+      "port": 9090,
+      "metricsPath": "/metrics"
+    },
+    "webhook": {
+      "enabled": false,
+      "alertEndpoint": "",
+      "headers": {}
+    }
+  },
+  "production": {
+    "enableStackTraces": false,
+    "enableDebugLogs": false,
+    "enableVerboseErrors": false,
+    "enforceHttps": true,
+    "enableAuditLogging": true,
+    "logRetentionDays": 90,
+    "compressLogs": true
+  },
+  "development": {
+    "enableStackTraces": true,
+    "enableDebugLogs": true,
+    "enableVerboseErrors": true,
+    "enforceHttps": false,
+    "enableAuditLogging": false,
+    "logRetentionDays": 7,
+    "compressLogs": false
+  }
+}

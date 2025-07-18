@@ -25,14 +25,20 @@ const { ErrorHandler, ValidationError, AuthenticationError } = require('./core/e
 const HealthMonitor = require('./core/health_monitor');
 const ClaudeProvider = require('./providers/claude_provider');
 const config = require('./config/basic-config.json');
+const { logger } = require('./core/logger');
+const MonitoringService = require('./core/monitoring');
 
 class ApiServer {
     constructor() {
         this.app = express();
         this.port = config.application.port || 3000;
+        this.monitoring = new MonitoringService({
+            enableAlerting: config.monitoring.enableAlerting !== false
+        });
         this.errorHandler = new ErrorHandler({
             logLevel: config.monitoring.logLevel || 'info',
-            sanitizeErrors: true
+            sanitizeErrors: true,
+            monitoring: this.monitoring
         });
         this.templateManager = new TemplateManager();
         this.providers = new Map();
@@ -43,6 +49,15 @@ class ApiServer {
         this.setupMiddleware();
         this.setupRoutes();
         this.setupErrorHandling();
+
+        // Start monitoring
+        this.monitoring.start();
+
+        logger.info('API Server initialized', {
+            port: this.port,
+            environment: process.env.NODE_ENV || 'development',
+            logLevel: config.monitoring.logLevel || 'info'
+        });
     }
 
     /**
@@ -72,15 +87,27 @@ class ApiServer {
 
         // Start monitoring
         this.healthMonitor.start();
+
+        logger.info('Health monitoring started', {
+            eventType: 'health_monitoring_start',
+            services: Array.from(this.providers.keys())
+        });
     }
     initializeProviders() {
         // Initialize Claude provider if API key is available
         const claudeApiKey = process.env.ANTHROPIC_API_KEY;
         if (claudeApiKey) {
             this.providers.set('claude', new ClaudeProvider(claudeApiKey));
-            console.log('Claude provider initialized');
+            logger.info('Provider initialized', { 
+                provider: 'claude',
+                eventType: 'provider_initialization'
+            });
         } else {
-            console.warn('ANTHROPIC_API_KEY not found, Claude provider disabled');
+            logger.warn('Provider initialization failed', {
+                provider: 'claude',
+                reason: 'ANTHROPIC_API_KEY not found',
+                eventType: 'provider_initialization_failed'
+            });
         }
     }
 
@@ -115,6 +142,26 @@ class ApiServer {
                     error: true,
                     message: 'Rate limit exceeded',
                     type: 'rate_limit_error'
+                },
+                handler: (req, res) => {
+                    logger.security('Rate limit exceeded', {
+                        eventType: 'rate_limit_triggered',
+                        ip: req.ip,
+                        method: req.method,
+                        url: req.url,
+                        userAgent: req.headers['user-agent']
+                    });
+                    
+                    this.monitoring.trackSecurityEvent('rate_limit', {
+                        ip: req.ip,
+                        endpoint: req.url
+                    });
+                    
+                    res.status(429).json({
+                        error: true,
+                        message: 'Rate limit exceeded',
+                        type: 'rate_limit_error'
+                    });
                 }
             });
 
@@ -126,6 +173,27 @@ class ApiServer {
                     error: true,
                     message: 'Generation rate limit exceeded',
                     type: 'rate_limit_error'
+                },
+                handler: (req, res) => {
+                    logger.security('Generation rate limit exceeded', {
+                        eventType: 'rate_limit_triggered',
+                        limitType: 'generation',
+                        ip: req.ip,
+                        method: req.method,
+                        url: req.url
+                    });
+                    
+                    this.monitoring.trackSecurityEvent('rate_limit', {
+                        ip: req.ip,
+                        endpoint: req.url,
+                        limitType: 'generation'
+                    });
+                    
+                    res.status(429).json({
+                        error: true,
+                        message: 'Generation rate limit exceeded',
+                        type: 'rate_limit_error'
+                    });
                 }
             });
 
@@ -139,6 +207,15 @@ class ApiServer {
 
         // Request tracking middleware
         this.app.locals.healthMonitor = this.healthMonitor;
+        this.app.locals.monitoring = this.monitoring;
+        
+        // Add request correlation and logging
+        this.app.use(logger.requestLoggingMiddleware());
+        
+        // Add monitoring middleware
+        this.app.use(this.monitoring.requestMonitoringMiddleware());
+        
+        // Add legacy health monitor middleware
         this.app.use(this.healthMonitor.requestTrackingMiddleware());
 
         // Request validation middleware
@@ -180,6 +257,19 @@ class ApiServer {
         const apiKey = req.headers['x-api-key'] || req.headers.authorization?.replace('Bearer ', '');
 
         if (!apiKey) {
+            logger.auth('Authentication failed: No API key provided', {
+                eventType: 'auth_failure',
+                reason: 'no_api_key',
+                ip: req.ip,
+                url: req.url,
+                correlationId: req.correlationId
+            });
+            
+            this.monitoring.trackSecurityEvent('auth_failure', {
+                reason: 'no_api_key',
+                ip: req.ip
+            });
+            
             return next(new AuthenticationError('API key required'));
         }
 
@@ -187,8 +277,29 @@ class ApiServer {
         const validApiKeys = process.env.API_KEYS?.split(',') || ['test-api-key'];
 
         if (!validApiKeys.includes(apiKey)) {
+            logger.auth('Authentication failed: Invalid API key', {
+                eventType: 'auth_failure',
+                reason: 'invalid_api_key',
+                ip: req.ip,
+                url: req.url,
+                correlationId: req.correlationId
+            });
+            
+            this.monitoring.trackSecurityEvent('auth_failure', {
+                reason: 'invalid_api_key',
+                ip: req.ip
+            });
+            
             return next(new AuthenticationError('Invalid API key'));
         }
+
+        // Log successful authentication
+        logger.auth('Authentication successful', {
+            eventType: 'auth_success',
+            ip: req.ip,
+            url: req.url,
+            correlationId: req.correlationId
+        });
 
         // Add user context to request
         req.user = { apiKey, authenticated: true };
@@ -226,7 +337,8 @@ class ApiServer {
         // Metrics endpoint
         this.app.get('/api/metrics', this.getMetrics.bind(this));
 
-        // Remove the duplicate default route from here
+        // Additional metrics endpoint for comprehensive monitoring
+        this.app.get('/api/monitoring', this.getMonitoringMetrics.bind(this));
     }
 
     /**
@@ -328,6 +440,8 @@ class ApiServer {
      * Generate completion
      */
     async generateCompletion(req, res, next) {
+        const startTime = Date.now();
+        
         try {
             // Validate request
             const errors = validationResult(req);
@@ -336,6 +450,13 @@ class ApiServer {
             }
 
             const { template, variables = {}, provider = 'claude', options = {} } = req.body;
+
+            logger.business('Generation request started', {
+                template,
+                provider,
+                variableCount: Object.keys(variables).length,
+                correlationId: req.correlationId
+            });
 
             // Get provider
             const providerInstance = this.providers.get(provider);
@@ -357,9 +478,22 @@ class ApiServer {
             }
 
             // Generate completion
-            const startTime = Date.now();
             const result = await providerInstance.generateCompletion(prompt, options);
             const responseTime = Date.now() - startTime;
+
+            // Track provider usage
+            this.monitoring.trackProviderUsage(
+                provider,
+                'generate_completion',
+                true,
+                responseTime,
+                result.cost || 0,
+                {
+                    template,
+                    tokensUsed: result.usage?.totalTokens || 0,
+                    model: result.model
+                }
+            );
 
             // Update template usage
             await this.templateManager.updateTemplateUsage(template, {
@@ -367,6 +501,16 @@ class ApiServer {
                 responseTime,
                 tokensUsed: result.usage?.totalTokens || 0,
                 cost: result.cost || 0
+            });
+
+            logger.business('Generation request completed', {
+                template,
+                provider,
+                success: true,
+                responseTime,
+                tokensUsed: result.usage?.totalTokens || 0,
+                cost: result.cost || 0,
+                correlationId: req.correlationId
             });
 
             res.json({
@@ -383,15 +527,42 @@ class ApiServer {
             });
 
         } catch (error) {
+            const responseTime = Date.now() - startTime;
+            
+            // Track failed provider usage
+            if (req.body.provider) {
+                this.monitoring.trackProviderUsage(
+                    req.body.provider,
+                    'generate_completion',
+                    false,
+                    responseTime,
+                    0,
+                    {
+                        template: req.body.template,
+                        errorType: error.name
+                    }
+                );
+            }
+
             // Update template usage for failed generation
             if (req.body.template) {
                 await this.templateManager.updateTemplateUsage(req.body.template, {
                     success: false,
-                    responseTime: 0,
+                    responseTime,
                     tokensUsed: 0,
                     cost: 0
                 });
             }
+
+            logger.business('Generation request failed', {
+                template: req.body.template,
+                provider: req.body.provider,
+                success: false,
+                responseTime,
+                error: error.message,
+                correlationId: req.correlationId
+            });
+
             next(error);
         }
     }
@@ -456,6 +627,21 @@ class ApiServer {
     }
 
     /**
+     * Get comprehensive monitoring metrics
+     */
+    getMonitoringMetrics(req, res) {
+        const monitoringMetrics = this.monitoring.getMetrics();
+        const healthStatus = this.monitoring.getHealthStatus();
+        
+        res.json({
+            success: true,
+            monitoring: monitoringMetrics,
+            health: healthStatus,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    /**
      * Setup error handling
      */
     setupErrorHandling() {
@@ -469,6 +655,7 @@ class ApiServer {
         });
 
         // Global error handler
+        this.app.use(logger.errorLoggingMiddleware());
         this.app.use(this.errorHandler.expressMiddleware());
     }
 
@@ -477,10 +664,30 @@ class ApiServer {
      */
     start() {
         this.app.listen(this.port, config.application.host, () => {
+            logger.info('API Server started', {
+                host: config.application.host,
+                port: this.port,
+                environment: process.env.NODE_ENV || 'development',
+                eventType: 'server_start'
+            });
+            
             console.log(`n8n Claude Prompt System API server running on ${config.application.host}:${this.port}`);
             console.log(`Health check: http://${config.application.host}:${this.port}/api/health`);
             console.log(`API docs: http://${config.application.host}:${this.port}/`);
         });
+    }
+
+    /**
+     * Graceful shutdown
+     */
+    shutdown() {
+        logger.info('API Server shutting down', {
+            eventType: 'server_shutdown'
+        });
+        
+        this.monitoring.stop();
+        this.healthMonitor.stop();
+        logger.cleanup();
     }
 }
 
@@ -488,6 +695,19 @@ class ApiServer {
 if (require.main === module) {
     const server = new ApiServer();
     server.start();
+
+    // Graceful shutdown handlers
+    process.on('SIGTERM', () => {
+        logger.info('SIGTERM received, starting graceful shutdown');
+        server.shutdown();
+        process.exit(0);
+    });
+
+    process.on('SIGINT', () => {
+        logger.info('SIGINT received, starting graceful shutdown');
+        server.shutdown();
+        process.exit(0);
+    });
 }
 
 module.exports = ApiServer;
