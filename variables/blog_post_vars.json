@@ -1,0 +1,27 @@
+{
+  "title": {
+    "type": "string",
+    "description": "The title of the blog post.",
+    "example": "How to Automate Your Workflow with n8n"
+  },
+  "author": {
+    "type": "string",
+    "description": "The name of the author of the blog post.",
+    "example": "Jane Doe"
+  },
+  "publish_date": {
+    "type": "string",
+    "description": "The date when the blog post is published.",
+    "example": "2024-06-01"
+  },
+  "content": {
+    "type": "string",
+    "description": "The main content of the blog post.",
+    "example": "In this post, we will explore how to use n8n to automate your daily tasks..."
+  },
+  "tags": {
+    "type": "array",
+    "description": "A list of tags related to the blog post.",
+    "example": ["automation", "n8n", "workflow"]
+  }
+}
