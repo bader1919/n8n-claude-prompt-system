@@ -1,0 +1,322 @@
+/**
+ * Error Handler - Comprehensive error handling and input sanitization
+ * Part of the n8n Claude Prompt System
+ *
+ * Features:
+ * - Input validation and sanitization
+ * - Secure error message handling
+ * - Template injection protection
+ * - Request validation middleware
+ * - Logging and monitoring
+ *
+ * @author Bader Abdulrahim
+ * @version 1.0.0
+ */
+
+class ErrorHandler {
+    constructor(options = {}) {
+        this.logLevel = options.logLevel || 'error';
+        this.includeStackTrace = options.includeStackTrace || false;
+        this.sanitizeErrors = options.sanitizeErrors !== false; // Default to true
+    }
+
+    /**
+     * Sanitize input to prevent injection attacks
+     */
+    sanitizeInput(input) {
+        if (typeof input !== 'string') {
+            return input;
+        }
+
+        // Remove potential script injections
+        const sanitized = input
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/javascript:/gi, '')
+            .replace(/on\w+\s*=/gi, '')
+            .replace(/eval\s*\(/gi, '')
+            .replace(/Function\s*\(/gi, '')
+            .replace(/setTimeout\s*\(/gi, '')
+            .replace(/setInterval\s*\(/gi, '');
+
+        return sanitized.trim();
+    }
+
+    /**
+     * Validate template variables
+     */
+    validateTemplateVariables(variables) {
+        const errors = [];
+
+        if (!variables || typeof variables !== 'object') {
+            errors.push('Variables must be a valid object');
+            return errors;
+        }
+
+        for (const [key, value] of Object.entries(variables)) {
+            // Validate key format
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+                errors.push(`Invalid variable name: ${key}. Must be alphanumeric with underscores.`);
+            }
+
+            // Validate value
+            if (typeof value === 'string') {
+                if (value.length > 10000) {
+                    errors.push(`Variable ${key} exceeds maximum length of 10000 characters`);
+                }
+
+                // Check for potential injection patterns
+                if (this.containsSuspiciousPatterns(value)) {
+                    errors.push(`Variable ${key} contains potentially unsafe content`);
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    /**
+     * Check for suspicious patterns that might indicate injection attempts
+     */
+    containsSuspiciousPatterns(text) {
+        const suspiciousPatterns = [
+            /\{\{.*?eval.*?\}\}/i,
+            /\{\{.*?function.*?\}\}/i,
+            /\{\{.*?require.*?\}\}/i,
+            /\{\{.*?process.*?\}\}/i,
+            /\{\{.*?global.*?\}\}/i,
+            /\{\{.*?constructor.*?\}\}/i,
+            /\{\{.*?__proto__.*?\}\}/i,
+            /\{\{.*?prototype.*?\}\}/i
+        ];
+
+        return suspiciousPatterns.some(pattern => pattern.test(text));
+    }
+
+    /**
+     * Validate API request structure
+     */
+    validateApiRequest(req) {
+        const errors = [];
+
+        // Check required fields based on endpoint
+        if (req.path.includes('/generate')) {
+            if (!req.body.template) {
+                errors.push('Template is required for generation');
+            }
+
+            if (req.body.variables) {
+                const variableErrors = this.validateTemplateVariables(req.body.variables);
+                errors.push(...variableErrors);
+            }
+        }
+
+        // Validate headers for POST requests only
+        if (req.method === 'POST' && (!req.headers['content-type'] || !req.headers['content-type'].includes('application/json'))) {
+            errors.push('Content-Type must be application/json');
+        }
+
+        return errors;
+    }
+
+    /**
+     * Handle errors securely without exposing sensitive information
+     */
+    handleError(error, req = null) {
+        const timestamp = new Date().toISOString();
+        const errorId = this.generateErrorId();
+
+        // Log full error details internally
+        const logEntry = {
+            errorId,
+            timestamp,
+            message: error.message,
+            stack: error.stack,
+            url: req?.url,
+            method: req?.method,
+            userAgent: req?.headers['user-agent'],
+            ip: req?.ip
+        };
+
+        this.logError(logEntry);
+
+        // Return sanitized error for client
+        return this.sanitizeErrorResponse(error, errorId);
+    }
+
+    /**
+     * Generate unique error ID for tracking
+     */
+    generateErrorId() {
+        return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    /**
+     * Sanitize error response to prevent information disclosure
+     */
+    sanitizeErrorResponse(error, errorId) {
+        const sanitizedResponse = {
+            error: true,
+            errorId,
+            timestamp: new Date().toISOString()
+        };
+
+        // Map internal errors to safe external messages
+        if (error.name === 'ValidationError') {
+            sanitizedResponse.message = 'Invalid input provided';
+            sanitizedResponse.type = 'validation_error';
+        } else if (error.name === 'AuthenticationError') {
+            sanitizedResponse.message = 'Authentication failed';
+            sanitizedResponse.type = 'auth_error';
+        } else if (error.name === 'RateLimitError') {
+            sanitizedResponse.message = 'Rate limit exceeded';
+            sanitizedResponse.type = 'rate_limit_error';
+        } else if (error.code === 'ENOENT') {
+            sanitizedResponse.message = 'Resource not found';
+            sanitizedResponse.type = 'not_found_error';
+        } else if (error.response?.status >= 400 && error.response?.status < 500) {
+            sanitizedResponse.message = 'Client error occurred';
+            sanitizedResponse.type = 'client_error';
+        } else if (error.response?.status >= 500) {
+            sanitizedResponse.message = 'External service error';
+            sanitizedResponse.type = 'service_error';
+        } else {
+            sanitizedResponse.message = 'An internal error occurred';
+            sanitizedResponse.type = 'internal_error';
+        }
+
+        // Include stack trace only in development
+        if (!this.sanitizeErrors && this.includeStackTrace) {
+            sanitizedResponse.stack = error.stack;
+        }
+
+        return sanitizedResponse;
+    }
+
+    /**
+     * Log error with appropriate level
+     */
+    logError(logEntry) {
+        const logMessage = JSON.stringify(logEntry, null, 2);
+
+        switch (this.logLevel) {
+        case 'debug':
+            console.debug(`[DEBUG] ${logMessage}`);
+            break;
+        case 'info':
+            console.info(`[INFO] ${logMessage}`);
+            break;
+        case 'warn':
+            console.warn(`[WARN] ${logMessage}`);
+            break;
+        case 'error':
+        default:
+            console.error(`[ERROR] ${logMessage}`);
+            break;
+        }
+    }
+
+    /**
+     * Express middleware for error handling
+     */
+    expressMiddleware() {
+        return (error, req, res, _next) => {
+            const handledError = this.handleError(error, req);
+
+            // Determine HTTP status code
+            let statusCode = 500;
+            if (handledError.type === 'validation_error') statusCode = 400;
+            else if (handledError.type === 'auth_error') statusCode = 401;
+            else if (handledError.type === 'not_found_error') statusCode = 404;
+            else if (handledError.type === 'rate_limit_error') statusCode = 429;
+            else if (handledError.type === 'client_error') statusCode = 400;
+            else if (handledError.type === 'service_error') statusCode = 502;
+
+            res.status(statusCode).json(handledError);
+        };
+    }
+
+    /**
+     * Express middleware for request validation
+     */
+    validationMiddleware() {
+        return (req, res, next) => {
+            try {
+                const errors = this.validateApiRequest(req);
+
+                if (errors.length > 0) {
+                    const validationError = new Error('Validation failed');
+                    validationError.name = 'ValidationError';
+                    validationError.details = errors;
+                    throw validationError;
+                }
+
+                // Sanitize request body
+                if (req.body) {
+                    req.body = this.sanitizeRequestBody(req.body);
+                }
+
+                next();
+            } catch (error) {
+                next(error);
+            }
+        };
+    }
+
+    /**
+     * Recursively sanitize request body
+     */
+    sanitizeRequestBody(body) {
+        if (typeof body === 'string') {
+            return this.sanitizeInput(body);
+        } else if (Array.isArray(body)) {
+            return body.map(item => this.sanitizeRequestBody(item));
+        } else if (body && typeof body === 'object') {
+            const sanitized = {};
+            for (const [key, value] of Object.entries(body)) {
+                sanitized[key] = this.sanitizeRequestBody(value);
+            }
+            return sanitized;
+        }
+        return body;
+    }
+
+    /**
+     * Create custom error types
+     */
+    static createError(name, message, statusCode = 500) {
+        const error = new Error(message);
+        error.name = name;
+        error.statusCode = statusCode;
+        return error;
+    }
+}
+
+// Custom error types
+class ValidationError extends Error {
+    constructor(message, details = []) {
+        super(message);
+        this.name = 'ValidationError';
+        this.details = details;
+    }
+}
+
+class AuthenticationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthenticationError';
+    }
+}
+
+class RateLimitError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'RateLimitError';
+    }
+}
+
+module.exports = {
+    ErrorHandler,
+    ValidationError,
+    AuthenticationError,
+    RateLimitError
+};

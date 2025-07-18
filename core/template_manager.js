@@ -1,14 +1,14 @@
 /**
  * Template Manager - Core component for template discovery, validation, and lifecycle management
  * Part of the n8n Claude Prompt System
- * 
+ *
  * Features:
  * - Automatic template discovery and scanning
  * - Template validation and quality scoring
  * - Template caching and metadata management
  * - Version control integration
  * - Template lifecycle management (CRUD operations)
- * 
+ *
  * @author Bader Abdulrahim
  * @version 1.0.0
  */
@@ -27,7 +27,7 @@ class TemplateManager {
         this.registry = new Map();
         this.cache = new Map();
         this.isScanning = false;
-        
+
         this.init();
     }
 
@@ -70,7 +70,7 @@ class TemplateManager {
                 version: '1.0.0',
                 templates: Object.fromEntries(this.registry)
             };
-            
+
             await fs.writeFile(this.registryFile, JSON.stringify(registryData, null, 2));
             console.log('Template registry saved successfully');
         } catch (error) {
@@ -102,7 +102,7 @@ class TemplateManager {
                 last_updated: new Date().toISOString(),
                 cache: Object.fromEntries(this.cache)
             };
-            
+
             await fs.writeFile(this.cacheFile, JSON.stringify(cacheData, null, 2));
             console.log('Template cache saved successfully');
         } catch (error) {
@@ -116,12 +116,12 @@ class TemplateManager {
     async startAutoDiscovery() {
         // Initial scan
         await this.scanTemplates();
-        
+
         // Schedule periodic scans
         setInterval(() => {
             this.scanTemplates();
         }, this.scanInterval);
-        
+
         console.log('Auto-discovery started, scanning every 24 hours');
     }
 
@@ -133,23 +133,23 @@ class TemplateManager {
             console.log('Template scan already in progress...');
             return;
         }
-        
+
         this.isScanning = true;
         console.log('Starting template scan...');
-        
+
         try {
             const categories = await this.getTemplateCategories();
             let totalTemplates = 0;
             let newTemplates = 0;
             let updatedTemplates = 0;
-            
+
             for (const category of categories) {
                 const templates = await this.scanCategory(category);
-                
+
                 for (const template of templates) {
                     const templateKey = `${category}/${template.name}`;
                     const existingTemplate = this.registry.get(templateKey);
-                    
+
                     if (!existingTemplate) {
                         await this.addTemplate(template, category);
                         newTemplates++;
@@ -157,16 +157,16 @@ class TemplateManager {
                         await this.updateTemplate(template, category);
                         updatedTemplates++;
                     }
-                    
+
                     totalTemplates++;
                 }
             }
-            
+
             console.log(`Template scan completed: ${totalTemplates} total, ${newTemplates} new, ${updatedTemplates} updated`);
-            
+
             await this.saveRegistry();
             await this.saveCache();
-            
+
         } catch (error) {
             console.error('Template scan failed:', error);
         } finally {
@@ -181,16 +181,16 @@ class TemplateManager {
         try {
             const items = await fs.readdir(this.templateDir);
             const categories = [];
-            
+
             for (const item of items) {
                 const itemPath = path.join(this.templateDir, item);
                 const stats = await fs.stat(itemPath);
-                
+
                 if (stats.isDirectory()) {
                     categories.push(item);
                 }
             }
-            
+
             return categories;
         } catch (error) {
             console.error('Failed to get template categories:', error);
@@ -204,15 +204,15 @@ class TemplateManager {
     async scanCategory(category) {
         const categoryPath = path.join(this.templateDir, category);
         const templates = [];
-        
+
         try {
             const files = await fs.readdir(categoryPath);
-            
+
             for (const file of files) {
                 if (file.endsWith('.txt')) {
                     const templatePath = path.join(categoryPath, file);
                     const templateData = await this.loadTemplateFile(templatePath);
-                    
+
                     if (templateData) {
                         templates.push({
                             name: file.replace('.txt', ''),
@@ -226,7 +226,7 @@ class TemplateManager {
         } catch (error) {
             console.error(`Failed to scan category ${category}:`, error);
         }
-        
+
         return templates;
     }
 
@@ -237,16 +237,16 @@ class TemplateManager {
         try {
             const content = await fs.readFile(templatePath, 'utf8');
             const stats = await fs.stat(templatePath);
-            
+
             // Extract variables from template
             const variables = this.extractVariables(content);
-            
+
             // Calculate content hash
             const hash = crypto.createHash('sha256').update(content).digest('hex');
-            
+
             // Calculate quality score
             const qualityScore = this.calculateQualityScore(content, variables);
-            
+
             return {
                 content,
                 variables,
@@ -270,13 +270,13 @@ class TemplateManager {
         const variablePattern = /\{\{(\w+)\}\}/g;
         const variables = [];
         let match;
-        
+
         while ((match = variablePattern.exec(content)) !== null) {
             if (!variables.includes(match[1])) {
                 variables.push(match[1]);
             }
         }
-        
+
         return variables;
     }
 
@@ -285,30 +285,30 @@ class TemplateManager {
      */
     calculateQualityScore(content, variables) {
         let score = 0;
-        
+
         // Base score for having content
         if (content.length > 0) score += 10;
-        
+
         // Score for structure and organization
         if (content.includes('Instructions:')) score += 15;
         if (content.includes('Context:')) score += 15;
         if (content.includes('Output:') || content.includes('Response:')) score += 15;
-        
+
         // Score for variable usage
         if (variables.length > 0) score += 20;
         if (variables.length > 5) score += 10;
-        
+
         // Score for content length (optimal range)
         if (content.length >= 200 && content.length <= 2000) score += 10;
-        
+
         // Score for clear formatting
         if (content.includes('\n\n')) score += 5; // Has paragraph breaks
         if (content.includes('1.') || content.includes('-')) score += 5; // Has lists
-        
+
         // Score for professional language
         if (content.includes('You are')) score += 5;
         if (content.includes('professional') || content.includes('expert')) score += 5;
-        
+
         return Math.min(score, 100); // Cap at 100
     }
 
@@ -317,7 +317,7 @@ class TemplateManager {
      */
     async addTemplate(template, category) {
         const templateKey = `${category}/${template.name}`;
-        
+
         const templateMetadata = {
             name: template.name,
             category: category,
@@ -346,14 +346,14 @@ class TemplateManager {
             },
             status: 'active'
         };
-        
+
         this.registry.set(templateKey, templateMetadata);
         this.cache.set(templateKey, {
             content: template.content,
             variables: template.variables,
             lastCached: new Date().toISOString()
         });
-        
+
         console.log(`Added new template: ${templateKey}`);
     }
 
@@ -363,13 +363,13 @@ class TemplateManager {
     async updateTemplate(template, category) {
         const templateKey = `${category}/${template.name}`;
         const existingTemplate = this.registry.get(templateKey);
-        
+
         if (existingTemplate) {
             // Increment version
             const versionParts = existingTemplate.version.split('.');
             versionParts[2] = (parseInt(versionParts[2]) + 1).toString();
             const newVersion = versionParts.join('.');
-            
+
             existingTemplate.version = newVersion;
             existingTemplate.hash = template.hash;
             existingTemplate.variables = template.variables;
@@ -381,14 +381,14 @@ class TemplateManager {
                 variableCount: template.variables.length
             };
             existingTemplate.timestamps.lastModified = template.lastModified;
-            
+
             this.registry.set(templateKey, existingTemplate);
             this.cache.set(templateKey, {
                 content: template.content,
                 variables: template.variables,
                 lastCached: new Date().toISOString()
             });
-            
+
             console.log(`Updated template: ${templateKey} -> v${newVersion}`);
         }
     }
@@ -399,14 +399,14 @@ class TemplateManager {
     async getTemplate(templateKey) {
         const template = this.registry.get(templateKey);
         const cachedContent = this.cache.get(templateKey);
-        
+
         if (template && cachedContent) {
             return {
                 ...template,
                 content: cachedContent.content
             };
         }
-        
+
         return null;
     }
 
@@ -432,7 +432,7 @@ class TemplateManager {
      */
     searchTemplates(query) {
         const searchTerm = query.toLowerCase();
-        return this.getAllTemplates().filter(template => 
+        return this.getAllTemplates().filter(template =>
             template.name.toLowerCase().includes(searchTerm) ||
             template.category.toLowerCase().includes(searchTerm) ||
             template.variables.some(variable => variable.toLowerCase().includes(searchTerm))
@@ -444,26 +444,26 @@ class TemplateManager {
      */
     async updateTemplateUsage(templateKey, executionData) {
         const template = this.registry.get(templateKey);
-        
+
         if (template) {
             template.usage.totalExecutions++;
-            
+
             if (executionData.success) {
                 template.usage.successfulExecutions++;
             } else {
                 template.usage.failedExecutions++;
             }
-            
+
             // Update averages
             const totalExecutions = template.usage.totalExecutions;
             const currentAvgTime = template.usage.averageResponseTime;
-            template.usage.averageResponseTime = 
+            template.usage.averageResponseTime =
                 (currentAvgTime * (totalExecutions - 1) + executionData.responseTime) / totalExecutions;
-            
+
             template.usage.totalTokensUsed += executionData.tokensUsed || 0;
             template.usage.totalCost += executionData.cost || 0;
             template.timestamps.lastUsed = new Date().toISOString();
-            
+
             this.registry.set(templateKey, template);
             await this.saveRegistry();
         }
@@ -474,7 +474,7 @@ class TemplateManager {
      */
     getTemplateStats() {
         const templates = this.getAllTemplates();
-        
+
         return {
             totalTemplates: templates.length,
             activeTemplates: templates.filter(t => t.status === 'active').length,
