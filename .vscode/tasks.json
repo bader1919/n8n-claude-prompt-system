@@ -1,0 +1,58 @@
+{
+  "label": "npm tasks",
+  "type": "shell",
+  "options": {
+    "cwd": "${workspaceFolder}"
+  },
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "label": "npm: test",
+      "detail": "Run all tests"
+    },
+    {
+      "type": "npm",
+      "script": "test:watch",
+      "group": "test",
+      "label": "npm: test:watch",
+      "detail": "Run tests in watch mode"
+    },
+    {
+      "type": "npm",
+      "script": "test:coverage",
+      "group": "test",
+      "label": "npm: test:coverage",
+      "detail": "Run tests with coverage"
+    },
+    {
+      "type": "npm",
+      "script": "lint",
+      "group": "build",
+      "label": "npm: lint",
+      "detail": "Run ESLint"
+    },
+    {
+      "type": "npm",
+      "script": "lint:fix",
+      "group": "build",
+      "label": "npm: lint:fix",
+      "detail": "Run ESLint with auto-fix"
+    },
+    {
+      "type": "npm",
+      "script": "start",
+      "group": "build",
+      "label": "npm: start",
+      "detail": "Start the application"
+    },
+    {
+      "type": "npm",
+      "script": "dev",
+      "group": "build",
+      "label": "npm: dev",
+      "detail": "Start in development mode with nodemon"
+    }
+  ]
+}

@@ -64,8 +64,7 @@ jspm_packages/
 # dotenv environment variables file
 .env
 
-# IDE files
-.vscode/
+# IDE files (excluding project-specific VS Code config for better development experience)
 .idea/
 *.swp
 *.swo
