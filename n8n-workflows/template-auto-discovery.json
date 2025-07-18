@@ -1,0 +1,237 @@
+{
+  "name": "Template Auto Discovery & Management",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "name": "Scheduled Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "scheduled-trigger-node"
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/bader1919/n8n-claude-prompt-system/git/trees/main?recursive=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-template-scanner"
+            }
+          ]
+        }
+      },
+      "name": "Scan Repository",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "id": "scan-repository-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Template Discovery and Analysis\nconst repoData = $node['Scan Repository'].json;\nconst tree = repoData.tree || [];\n\n// Find all template files\nconst templateFiles = tree.filter(item => {\n  return item.type === 'blob' && \n         item.path.startsWith('templates/') && \n         item.path.endsWith('.txt') &&\n         !item.path.includes('/.') && // Exclude hidden files\n         !item.path.includes('_backup') && // Exclude backup files\n         !item.path.includes('_draft'); // Exclude draft files\n});\n\n// Categorize templates\nconst categories = {};\nconst templateMetadata = [];\n\ntemplateFiles.forEach(file => {\n  const pathParts = file.path.split('/');\n  if (pathParts.length >= 3) {\n    const category = pathParts[1];\n    const filename = pathParts[pathParts.length - 1];\n    const templateName = filename.replace('.txt', '');\n    \n    // Extract version from filename if present\n    const versionMatch = templateName.match(/_v(\\d+)\\.(\\d+)\\.(\\d+)$/);\n    let version = '1.0.0';\n    let baseName = templateName;\n    \n    if (versionMatch) {\n      version = `${versionMatch[1]}.${versionMatch[2]}.${versionMatch[3]}`;\n      baseName = templateName.replace(/_v\\d+\\.\d+\\.\d+$/, '');\n    }\n    \n    if (!categories[category]) {\n      categories[category] = [];\n    }\n    \n    const metadata = {\n      name: baseName,\n      filename: filename,\n      category: category,\n      version: version,\n      path: file.path,\n      size: file.size,\n      sha: file.sha,\n      url: file.url,\n      download_url: `https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/${file.path}`,\n      last_modified: new Date().toISOString(), // We'll get actual date later\n      discovered_at: new Date().toISOString()\n    };\n    \n    categories[category].push(metadata);\n    templateMetadata.push(metadata);\n  }\n});\n\n// Statistics\nconst stats = {\n  total_templates: templateMetadata.length,\n  categories_count: Object.keys(categories).length,\n  categories: Object.keys(categories),\n  new_templates: [], // Will be determined by comparing with registry\n  updated_templates: [],\n  scan_timestamp: new Date().toISOString()\n};\n\nreturn {\n  discovered_templates: templateMetadata,\n  categories: categories,\n  stats: stats,\n  step: 'template_discovery'\n};"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/bader1919/n8n-claude-prompt-system/main/config/template-registry.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Load Current Registry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300],
+      "id": "load-registry-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare with Current Registry and Identify Changes\nconst discoveredData = $node['Analyze Templates'].json;\nconst currentRegistry = $node['Load Current Registry'].json;\n\nconst discoveredTemplates = discoveredData.discovered_templates;\nconst currentTemplates = currentRegistry.templates || {};\n\nconst changes = {\n  new_templates: [],\n  updated_templates: [],\n  new_versions: [],\n  deprecated_templates: [],\n  category_changes: []\n};\n\n// Group discovered templates by base name\nconst templateGroups = {};\ndiscoveredTemplates.forEach(template => {\n  if (!templateGroups[template.name]) {\n    templateGroups[template.name] = [];\n  }\n  templateGroups[template.name].push(template);\n});\n\n// Analyze each template group\nObject.entries(templateGroups).forEach(([templateName, versions]) => {\n  const currentTemplate = currentTemplates[templateName];\n  \n  if (!currentTemplate) {\n    // Completely new template\n    changes.new_templates.push({\n      name: templateName,\n      versions: versions,\n      category: versions[0].category\n    });\n  } else {\n    // Existing template - check for new versions\n    const currentVersions = Object.keys(currentTemplate.versions || {});\n    const discoveredVersions = versions.map(v => v.version);\n    \n    const newVersions = discoveredVersions.filter(v => !currentVersions.includes(v));\n    \n    if (newVersions.length > 0) {\n      changes.new_versions.push({\n        name: templateName,\n        new_versions: newVersions,\n        versions_data: versions.filter(v => newVersions.includes(v.version))\n      });\n    }\n    \n    // Check for category changes\n    if (currentTemplate.category !== versions[0].category) {\n      changes.category_changes.push({\n        name: templateName,\n        old_category: currentTemplate.category,\n        new_category: versions[0].category\n      });\n    }\n  }\n});\n\n// Check for deprecated templates (exist in registry but not in repo)\nObject.keys(currentTemplates).forEach(templateName => {\n  if (!templateGroups[templateName]) {\n    changes.deprecated_templates.push({\n      name: templateName,\n      last_version: currentTemplates[templateName].current_version\n    });\n  }\n});\n\nconst summary = {\n  total_changes: Object.values(changes).reduce((sum, arr) => sum + arr.length, 0),\n  has_changes: Object.values(changes).some(arr => arr.length > 0),\n  change_types: Object.keys(changes).filter(key => changes[key].length > 0)\n};\n\nreturn {\n  template_groups: templateGroups,\n  changes: changes,\n  summary: summary,\n  current_registry: currentRegistry,\n  discovered_stats: discoveredData.stats,\n  step: 'change_detection'\n};"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has_changes_condition",
+              "leftValue": "={{ $json.summary.has_changes }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Changes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "has-changes-condition-node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process New and Updated Templates\\nconst changeData = $node['Detect Changes'].json;\\nconst changes = changeData.changes;\\nconst templateGroups = changeData.template_groups;\\n\\nconst processingResults = [];\\n\\n// Function to fetch and analyze template content\\nasync function analyzeTemplate(template) {\\n  try {\\n    const response = await fetch(template.download_url);\\n    const content = await response.text();\\n    \\n    // Extract variables from template\\n    const variablePattern = /\\\\{\\\\{(\\\\w+)\\\\}\\\\}/g;\\n    const variables = [];\\n    let match;\\n    \\n    while ((match = variablePattern.exec(content)) !== null) {\\n      if (!variables.includes(match[1])) {\\n        variables.push(match[1]);\\n      }\\n    }\\n    \\n    // Estimate quality score based on various factors\\n    const qualityFactors = {\\n      has_description: content.includes('You are') ? 1 : 0,\\n      has_context: content.includes('Context:') ? 1 : 0,\\n      has_instructions: content.includes('Instructions:') ? 1 : 0,\\n      has_output_format: content.includes('Output') || content.includes('Format') ? 1 : 0,\\n      variable_count: Math.min(variables.length / 10, 1), // Normalize to 0-1\\n      content_length: Math.min(content.length / 2000, 1), // Normalize to 0-1\\n      has_examples: content.includes('example') || content.includes('Example') ? 1 : 0\\n    };\\n    \
+    const qualityScore = (Object.values(qualityFactors).reduce((sum, val) => sum + val, 0) / Object.keys(qualityFactors).length) * 10;\\n    \
+    return {\\n      template: template,\\n      analysis: {\\n        content_length: content.length,\\n        variable_count: variables.length,\\n        variables: variables,\\n        estimated_tokens: Math.ceil(content.length / 4),\\n        quality_score: Math.round(qualityScore * 10) / 10,\\n        quality_factors: qualityFactors,\\n        has_validation: variables.length > 0\\n      },\\n      content: content.substring(0, 500) + (content.length > 500 ? '...' : '') // Truncated content for logging\\n    };\\n  } catch (error) {\\n    return {\\n      template: template,\\n      error: error.message,\\n      analysis: null\\n    };\\n  }\\n}\\n\\n// Process all templates that need analysis\\nconst templatesToAnalyze = [];\\n\\n// Add new templates\\nchanges.new_templates.forEach(newTemplate => {\\n  newTemplate.versions.forEach(version => {\\n    templatesToAnalyze.push(version);\\n  });\\n});\\n\\n// Add new versions\\nchanges.new_versions.forEach(versionChange => {\\n  versionChange.versions_data.forEach(version => {\\n    templatesToAnalyze.push(version);\\n  });\\n});\\n\\n// Since we can't use async/await in n8n code node, we'll prepare the data for the next node\\nreturn {\\n  templates_to_analyze: templatesToAnalyze,\\n  changes: changes,\\n  current_registry: changeData.current_registry,\\n  step: 'template_analysis_prep'\\n};"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Updated Registry\\nconst analysisData = $node['Prepare Analysis'].json;\\nconst currentRegistry = analysisData.current_registry;\\nconst changes = analysisData.changes;\\nconst templatesToAnalyze = analysisData.templates_to_analyze;\\n\\n// Clone current registry\\nconst updatedRegistry = JSON.parse(JSON.stringify(currentRegistry));\\n\\n// Update registry version\\nconst registryVersion = updatedRegistry.registry_version || '1.0.0';\\nconst versionParts = registryVersion.split('.').map(Number);\\nversionParts[2]++; // Increment patch version\\nupdatedRegistry.registry_version = versionParts.join('.');\\nupdatedRegistry.last_updated = new Date().toISOString();\\n\\n// Helper function to create template entry\\nfunction createTemplateEntry(template, analysis) {\\n  const estimated_analysis = analysis || {\\n    content_length: 500,\\n    variable_count: 5,\\n    variables: [],\\n    estimated_tokens: 125,\\n    quality_score: 8.0\\n  };\\n  \
+  return {\\n    name: template.name.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase()),\\n    description: `Generated template for ${template.category.replace(/_/g, ' ')}`,\\n    category: template.category,\\n    current_version: template.version,\\n    versions: {\\n      [template.version]: {\\n        file_path: template.path,\\n        created_date: template.discovered_at,\\n        author: 'auto-discovery',\\n        changelog: 'Auto-discovered template',\\n        status: 'active',\\n        compatibility: ['anthropic', 'openai', 'groq'],\\n        estimated_tokens: estimated_analysis.estimated_tokens,\\n        quality_score: estimated_analysis.quality_score\\n      }\\n    },\\n    usage_stats: {\\n      total_executions: 0,\\n      success_rate: 0,\\n      avg_response_time: 0,\\n      cost_per_execution: 0\\n    },\\n    tags: [template.category.replace(/_/g, '-'), 'auto-discovered'],\\n    required_variables: estimated_analysis.variables || [],\\n    optional_variables: []\\n  };\\n}\\n\\n// Process new templates\\nchanges.new_templates.forEach(newTemplate => {\\n  const latestVersion = newTemplate.versions.sort((a, b) => b.version.localeCompare(a.version))[0];\\n  const templateEntry = createTemplateEntry(latestVersion);\\n  \
+  // Add all versions\\n  newTemplate.versions.forEach(version => {\\n    templateEntry.versions[version.version] = {\\n      file_path: version.path,\\n      created_date: version.discovered_at,\\n      author: 'auto-discovery',\\n      changelog: `Auto-discovered version ${version.version}`,\\n      status: version.version === latestVersion.version ? 'active' : 'deprecated',\\n      compatibility: ['anthropic', 'openai', 'groq'],\\n      estimated_tokens: 125, // Default estimate\\n      quality_score: 8.0 // Default score\\n    };\\n  });\\n  \
+  updatedRegistry.templates[newTemplate.name] = templateEntry;\\n});\\n\\n// Process new versions of existing templates\\nchanges.new_versions.forEach(versionChange => {\\n  const templateName = versionChange.name;\\n  const existingTemplate = updatedRegistry.templates[templateName];\\n  \
+  if (existingTemplate) {\\n    versionChange.versions_data.forEach(version => {\\n      existingTemplate.versions[version.version] = {\\n        file_path: version.path,\\n        created_date: version.discovered_at,\\n        author: 'auto-discovery',\\n        changelog: `Auto-discovered version ${version.version}`,\\n        status: 'active',\\n        compatibility: ['anthropic', 'openai', 'groq'],\\n        estimated_tokens: 125,\\n        quality_score: 8.0\\n      };\\n    });\\n    \
+    // Update current version to latest\\n    const allVersions = Object.keys(existingTemplate.versions);\\n    const latestVersion = allVersions.sort((a, b) => b.localeCompare(a))[0];\\n    existingTemplate.current_version = latestVersion;\\n  }\\n});\\n\\n// Mark deprecated templates\\nchanges.deprecated_templates.forEach(deprecated => {\\n  const templateName = deprecated.name;\\n  if (updatedRegistry.templates[templateName]) {\\n    const versions = updatedRegistry.templates[templateName].versions;\\n    Object.keys(versions).forEach(version => {\\n      versions[version].status = 'deprecated';\\n    });\\n  }\\n});\\n\\n// Update discovery settings\\nif (!updatedRegistry.discovery_settings) {\\n  updatedRegistry.discovery_settings = {};\\n}\nupdatedRegistry.discovery_settings.last_scan = new Date().toISOString();\nupdatedRegistry.discovery_settings.templates_discovered = Object.keys(updatedRegistry.templates).length;\n\n// Generate summary\nconst updateSummary = {\n  registry_version: updatedRegistry.registry_version,\n  total_templates: Object.keys(updatedRegistry.templates).length,\n  changes_applied: {\n    new_templates: changes.new_templates.length,\n    new_versions: changes.new_versions.length,\n    deprecated_templates: changes.deprecated_templates.length,\n    category_changes: changes.category_changes.length\n  },\n  scan_timestamp: new Date().toISOString()\n};\n\nreturn {\n  updated_registry: updatedRegistry,\n  update_summary: updateSummary,\n  changes_applied: changes,\n  step: 'registry_update'\n};"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Commit Message and Prepare Update\nconst updateData = $node['Update Registry'].json;\nconst summary = updateData.update_summary;\nconst changes = updateData.changes_applied;\n\n// Build descriptive commit message\nlet commitMessage = `Auto-update template registry v${summary.registry_version}\n\n`;\n\nif (changes.new_templates.length > 0) {\n  commitMessage += `✨ New templates (${changes.new_templates.length}):\n`;\n  changes.new_templates.forEach(template => {\n    commitMessage += `  - ${template.name} (${template.category})\n`;\n  });\n  commitMessage += '\n';\n}\n\nif (changes.new_versions.length > 0) {\n  commitMessage += `📝 New versions (${changes.new_versions.length}):\n`;\n  changes.new_versions.forEach(version => {\n    commitMessage += `  - ${version.name}: ${version.new_versions.join(', ')}\n`;\n  });\n  commitMessage += '\n';\n}\n\nif (changes.deprecated_templates.length > 0) {\n  commitMessage += `🗑️ Deprecated templates (${changes.deprecated_templates.length}):\n`;\n  changes.deprecated_templates.forEach(template => {\n    commitMessage += `  - ${template.name}\n`;\n  });\n  commitMessage += '\n';\n}\n\ncommitMessage += `Total templates: ${summary.total_templates}\n`;\ncommitMessage += `Scan time: ${summary.scan_timestamp}\n`;\ncommitMessage += '\nGenerated by n8n auto-discovery workflow';\n\n// Prepare file update\nconst fileContent = JSON.stringify(updateData.updated_registry, null, 2);\n\nreturn {\n  file_content: fileContent,\n  commit_message: commitMessage,\n  update_summary: summary,\n  should_commit: true,\n  step: 'commit_preparation'\n};"
+    },
+    {
+      "parameters": {
+        "jsCode": "// No Changes Summary\nconst changeData = $node['Detect Changes'].json;\n\nreturn {\n  message: 'No template changes detected',\n  scan_summary: {\n    total_templates_scanned: Object.keys(changeData.template_groups).length,\n    categories: changeData.discovered_stats.categories,\n    scan_timestamp: changeData.discovered_stats.scan_timestamp,\n    next_scan: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString() // 6 hours from now\n  },\n  step: 'no_changes'\n};"
+    },
+  ],
+  "connections": {
+    "Scheduled Trigger": {
+      "main": [
+        [
+          {
+            "node": "Scan Repository",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Repository": {
+      "main": [
+        [
+          {
+            "node": "Analyze Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Templates": {
+      "main": [
+        [
+          {
+            "node": "Load Current Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Current Registry": {
+      "main": [
+        [
+          {
+            "node": "Detect Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Changes": {
+      "main": [
+        [
+          {
+            "node": "Has Changes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Changes?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Analysis": {
+      "main": [
+        [
+          {
+            "node": "Update Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Registry": {
+      "main": [
+        [
+          {
+            "node": "Prepare Commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Bahrain"
+  },
+  "tags": [
+    {
+      "name": "Auto Discovery",
+      "id": "auto-discovery"
+    },
+    {
+      "name": "Template Management",
+      "id": "template-management"
+    },
+    {
+      "name": "Automation",
+      "id": "automation"
+    }
+  ]
+}
