@@ -1,0 +1,14 @@
+{
+  "apiEndpoints": {
+    "baseUrl": "https://api.example.com",
+    "authEndpoint": "/auth",
+    "dataEndpoint": "/data"
+  },
+  "templatePaths": {
+    "basicTemplate": "templates/basic-template.json"
+  },
+  "validationRules": {
+    "requiredFields": ["username", "password"],
+    "maxFieldLength": 255
+  }
+}
