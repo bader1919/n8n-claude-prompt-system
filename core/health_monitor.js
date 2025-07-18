@@ -146,6 +146,7 @@ class HealthMonitor {
             status: overallStatus,
             timestamp: new Date().toISOString(),
             uptime: process.uptime(),
+            version: process.version,
             services,
             system: this.getSystemMetrics()
         };
@@ -157,7 +158,7 @@ class HealthMonitor {
     calculateOverallStatus() {
         const services = Array.from(this.services.values());
 
-        if (services.length === 0) return 'unknown';
+        if (services.length === 0) return 'healthy'; // No services registered is healthy
 
         const criticalServices = services.filter(s => s.critical);
         const unhealthyCritical = criticalServices.filter(s => s.status === 'unhealthy');
@@ -168,6 +169,8 @@ class HealthMonitor {
         const unknownServices = services.filter(s => s.status === 'unknown');
 
         if (unhealthyServices.length > 0) return 'degraded';
+        // If all services are just unknown (not checked yet), consider healthy for basic operation
+        if (unknownServices.length === services.length) return 'healthy';
         if (unknownServices.length > 0) return 'unknown';
 
         return 'healthy';

@@ -114,12 +114,8 @@ class BaseProvider {
    * @returns {Promise<boolean>} - True if healthy
    */
     async healthCheck() {
-        try {
-            // Override in subclasses for specific health checks
-            return true;
-        } catch (error) {
-            return false;
-        }
+        // Override in subclasses for specific health checks
+        return true;
     }
 }
 

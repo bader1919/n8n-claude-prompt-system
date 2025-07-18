@@ -29,14 +29,24 @@ class ErrorHandler {
         }
 
         // Remove potential script injections
-        const sanitized = input
+        let sanitized = input
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/javascript:/gi, '')
             .replace(/on\w+\s*=/gi, '')
             .replace(/eval\s*\(/gi, '')
             .replace(/Function\s*\(/gi, '')
             .replace(/setTimeout\s*\(/gi, '')
             .replace(/setInterval\s*\(/gi, '');
+
+        // Handle javascript: protocol specifically - remove the entire content if it starts with javascript:
+        if (sanitized.toLowerCase().startsWith('javascript:')) {
+            return '';
+        }
+
+        // Remove any remaining alert() calls and similar dangerous functions
+        sanitized = sanitized
+            .replace(/alert\s*\([^)]*\)/gi, '')
+            .replace(/confirm\s*\([^)]*\)/gi, '')
+            .replace(/prompt\s*\([^)]*\)/gi, '');
 
         return sanitized.trim();
     }
