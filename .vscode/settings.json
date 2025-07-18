@@ -1,0 +1,55 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "javascript.suggest.autoImports": true,
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "eslint.validate": ["javascript", "javascriptreact"],
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact"
+    },
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": true,
+        "scminput": false
+    },
+    "github.copilot.advanced": {
+        "length": 500,
+        "temperature": 0.1,
+        "top_p": 1,
+        "inlineSuggestEnable": true
+    },
+    "editor.suggestSelection": "first",
+    "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": true,
+        "strings": true
+    },
+    "editor.acceptSuggestionOnCommitCharacter": true,
+    "editor.acceptSuggestionOnEnter": "on",
+    "editor.wordBasedSuggestions": "off",
+    "editor.parameterHints.enabled": true,
+    "editor.suggest.snippetsPreventQuickSuggestions": false,
+    "files.associations": {
+        "*.js": "javascript",
+        "*.json": "json"
+    },
+    "search.exclude": {
+        "node_modules": true,
+        "logs": true,
+        "tmp": true,
+        "temp": true,
+        "*.log": true
+    },
+    "files.exclude": {
+        "node_modules": true,
+        "logs": true,
+        "tmp": true,
+        "temp": true
+    }
+}
