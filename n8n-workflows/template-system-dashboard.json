@@ -1,0 +1,75 @@
+{
+  "name": "Template System Dashboard",
+  "description": "Workflow for real-time monitoring, analytics, health checks, performance metrics, cost tracking, and system alerts for the template system.",
+  "trigger": {
+    "type": "schedule",
+    "interval": "*/5 * * * *"
+  },
+  "nodes": [
+    {
+      "id": "1",
+      "type": "monitoring",
+      "name": "Real-time Monitoring",
+      "parameters": {
+        "metrics": ["uptime", "response_time", "error_rate"]
+      }
+    },
+    {
+      "id": "2",
+      "type": "analytics",
+      "name": "Analytics",
+      "parameters": {
+        "data_sources": ["template_usage", "user_activity"]
+      }
+    },
+    {
+      "id": "3",
+      "type": "health_check",
+      "name": "Health Checks",
+      "parameters": {
+        "checks": ["database_connection", "api_availability"]
+      }
+    },
+    {
+      "id": "4",
+      "type": "performance_metrics",
+      "name": "Performance Metrics",
+      "parameters": {
+        "metrics": ["cpu_usage", "memory_usage", "disk_io"]
+      }
+    },
+    {
+      "id": "5",
+      "type": "cost_tracking",
+      "name": "Cost Tracking",
+      "parameters": {
+        "services": ["cloud_services", "third_party_apis"]
+      }
+    },
+    {
+      "id": "6",
+      "type": "system_alerts",
+      "name": "System Alerts",
+      "parameters": {
+        "alert_conditions": ["high_error_rate", "service_down"]
+      }
+    },
+    {
+      "id": "7",
+      "type": "data_export",
+      "name": "Power BI Export",
+      "parameters": {
+        "format": "json",
+        "destination": "power_bi"
+      }
+    }
+  ],
+  "connections": {
+    "1": ["2", "3", "4", "5", "6"],
+    "2": ["7"],
+    "3": ["7"],
+    "4": ["7"],
+    "5": ["7"],
+    "6": ["7"]
+  }
+}
