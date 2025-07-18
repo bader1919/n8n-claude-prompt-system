@@ -64,7 +64,7 @@ describe('ClaudeProvider', () => {
             };
 
             // Add a small delay to ensure responseTime > 0
-            axios.post.mockImplementation(() => 
+            axios.post.mockImplementation(() =>
                 new Promise(resolve => setTimeout(() => resolve(mockResponse), 1))
             );
 
@@ -374,7 +374,7 @@ describe('ClaudeProvider', () => {
         test('should respect rate limiting', async () => {
             // Use manual time control for deterministic testing
             jest.useFakeTimers();
-            
+
             const mockResponse = {
                 status: 200,
                 data: {
@@ -389,13 +389,13 @@ describe('ClaudeProvider', () => {
 
             // Create a fresh provider with a lower rate limit for testing
             const testProvider = new ClaudeProvider(mockApiKey);
-            
+
             // Make requests up to the limit (50 requests)
             const initialPromises = [];
             for (let i = 0; i < 50; i++) {
                 initialPromises.push(testProvider.generateCompletion('test'));
             }
-            
+
             // Wait for initial requests to complete
             await Promise.all(initialPromises);
 
@@ -482,18 +482,18 @@ describe('ClaudeProvider', () => {
 
         test('should securely store API key without exposure in errors', () => {
             const provider = new ClaudeProvider('sk-ant-secret-key-12345678901234567890');
-            
+
             // Test that API key is not exposed in error messages
             const errorMock = {
                 status: 401,
-                data: { 
-                    error: { 
-                        type: 'authentication_error', 
-                        message: 'Invalid API key' 
-                    } 
+                data: {
+                    error: {
+                        type: 'authentication_error',
+                        message: 'Invalid API key'
+                    }
                 }
             };
-            
+
             expect(() => provider.handleApiError(errorMock)).toThrow('Authentication failed with Claude API');
             // The error message should not contain the actual API key
             try {
@@ -517,7 +517,7 @@ describe('ClaudeProvider', () => {
             };
 
             // Mock with a slight delay to ensure responseTime > 0
-            axios.post.mockImplementation(() => 
+            axios.post.mockImplementation(() =>
                 new Promise(resolve => setTimeout(() => resolve(mockResponse), 1))
             );
 
@@ -553,7 +553,7 @@ describe('ClaudeProvider', () => {
             };
 
             // Simulate a slightly delayed response (500ms)
-            axios.post.mockImplementation(() => 
+            axios.post.mockImplementation(() =>
                 new Promise(resolve => setTimeout(() => resolve(mockResponse), 500))
             );
 
