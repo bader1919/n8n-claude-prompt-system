@@ -9,6 +9,114 @@ const ApiServer = require('../api_server');
 // Mock dependencies to avoid external calls
 jest.mock('../core/template_manager');
 jest.mock('../providers/claude_provider');
+jest.mock('../core/health_monitor');
+jest.mock('../core/monitoring');
+jest.mock('../core/logger');
+
+// Import mocked classes
+const TemplateManager = require('../core/template_manager');
+const ClaudeProvider = require('../providers/claude_provider');
+const HealthMonitor = require('../core/health_monitor');
+const MonitoringService = require('../core/monitoring');
+
+// Mock logger
+jest.mock('../core/logger', () => ({
+    logger: {
+        info: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        auth: jest.fn(),
+        business: jest.fn(),
+        security: jest.fn(),
+        requestLoggingMiddleware: jest.fn().mockReturnValue((req, res, next) => next()),
+        errorLoggingMiddleware: jest.fn().mockReturnValue((err, req, res, next) => next(err)),
+        cleanup: jest.fn()
+    }
+}));
+
+// Setup mock implementations
+beforeAll(() => {
+    // Mock TemplateManager
+    TemplateManager.mockImplementation(() => ({
+        getAllTemplates: jest.fn().mockReturnValue([
+            { id: 'business/customer_support', name: 'Customer Support', category: 'business' },
+            { id: 'technical/code_review', name: 'Code Review', category: 'technical' }
+        ]),
+        getTemplatesByCategory: jest.fn((category) => [
+            { id: `${category}/template1`, name: 'Template 1', category }
+        ]),
+        getTemplate: jest.fn((templateKey) => Promise.resolve({
+            id: templateKey,
+            content: 'Hello {{customer_name}}, we received your request about {{issue_description}}.',
+            variables: ['customer_name', 'issue_description']
+        })),
+        getTemplateStats: jest.fn().mockReturnValue({
+            totalTemplates: 5,
+            categories: 3,
+            lastUpdated: new Date().toISOString()
+        }),
+        updateTemplateUsage: jest.fn().mockResolvedValue(true)
+    }));
+
+    // Mock ClaudeProvider
+    ClaudeProvider.mockImplementation(() => ({
+        generateCompletion: jest.fn().mockResolvedValue({
+            content: 'Generated response',
+            usage: { totalTokens: 100 },
+            cost: 0.01,
+            model: 'claude-3-haiku'
+        }),
+        testConnection: jest.fn().mockResolvedValue({ success: true }),
+        getAvailableModels: jest.fn().mockReturnValue(['claude-3-haiku', 'claude-3-sonnet'])
+    }));
+
+    // Mock HealthMonitor
+    HealthMonitor.mockImplementation(() => ({
+        registerService: jest.fn(),
+        start: jest.fn(),
+        stop: jest.fn(),
+        getHealthStatus: jest.fn().mockReturnValue({
+            status: 'healthy',
+            uptime: 12345,
+            timestamp: new Date().toISOString(),
+            version: '1.0.0',
+            services: {}
+        }),
+        getReadinessStatus: jest.fn().mockReturnValue({
+            ready: true,
+            timestamp: new Date().toISOString()
+        }),
+        getLivenessStatus: jest.fn().mockReturnValue({
+            alive: true,
+            timestamp: new Date().toISOString()
+        }),
+        getMetrics: jest.fn().mockReturnValue({
+            uptime: 12345,
+            memory: { used: 100, total: 1000 },
+            timestamp: new Date().toISOString()
+        }),
+        requestTrackingMiddleware: jest.fn().mockReturnValue((req, res, next) => next())
+    }));
+
+    // Mock MonitoringService
+    MonitoringService.mockImplementation(() => ({
+        start: jest.fn(),
+        stop: jest.fn(),
+        trackSecurityEvent: jest.fn(),
+        trackProviderUsage: jest.fn(),
+        getMetrics: jest.fn().mockReturnValue({
+            requests: { total: 100, successful: 95, failed: 5 },
+            security: { authFailures: 2 },
+            timestamp: new Date().toISOString()
+        }),
+        getHealthStatus: jest.fn().mockReturnValue({
+            status: 'healthy',
+            timestamp: new Date().toISOString()
+        }),
+        requestMonitoringMiddleware: jest.fn().mockReturnValue((req, res, next) => next())
+    }));
+});
 
 describe('API Server Integration Tests', () => {
     let app;
@@ -21,6 +129,16 @@ describe('API Server Integration Tests', () => {
 
         server = new ApiServer();
         app = server.app;
+    });
+
+    afterAll(async () => {
+        // Cleanup server resources
+        if (server && server.shutdown) {
+            server.shutdown();
+        }
+
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 100));
     });
 
     describe('Health Check Endpoint', () => {
@@ -257,6 +375,7 @@ describe('API Server Integration Tests', () => {
         test('GET /api/metrics should return system metrics', async () => {
             const response = await request(app)
                 .get('/api/metrics')
+                .set('x-api-key', 'test-api-key')
                 .expect(200);
 
             expect(response.body).toHaveProperty('success', true);
