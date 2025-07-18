@@ -387,16 +387,11 @@ class Logger {
             // Log incoming request
             this.apiRequest(req, { correlationId });
 
-            // Override res.end to log response
-            const originalEnd = res.end;
-            res.end = function(chunk, encoding) {
+            // Track response when finished
+            res.on('finish', () => {
                 const responseTime = Date.now() - startTime;
-                
-                // Log response
                 this.apiResponse(req, res, responseTime, { correlationId });
-
-                return originalEnd.call(this, chunk, encoding);
-            }.bind(this);
+            });
 
             next();
         };

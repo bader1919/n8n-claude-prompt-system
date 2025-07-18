@@ -286,7 +286,7 @@ describe('Logging and Monitoring System', () => {
             
             const mockRes = {
                 setHeader: jest.fn(),
-                end: jest.fn()
+                on: jest.fn()
             };
             
             const mockNext = jest.fn();
@@ -295,6 +295,7 @@ describe('Logging and Monitoring System', () => {
                 middleware(mockReq, mockRes, mockNext);
                 expect(mockReq.correlationId).toBeDefined();
                 expect(mockRes.setHeader).toHaveBeenCalledWith('x-correlation-id', mockReq.correlationId);
+                expect(mockRes.on).toHaveBeenCalledWith('finish', expect.any(Function));
                 expect(mockNext).toHaveBeenCalled();
             }).not.toThrow();
         });
@@ -314,13 +315,14 @@ describe('Logging and Monitoring System', () => {
             const mockRes = {
                 statusCode: 200,
                 get: jest.fn().mockReturnValue('100'),
-                end: jest.fn()
+                on: jest.fn()
             };
             
             const mockNext = jest.fn();
 
             expect(() => {
                 middleware(mockReq, mockRes, mockNext);
+                expect(mockRes.on).toHaveBeenCalledWith('finish', expect.any(Function));
                 expect(mockNext).toHaveBeenCalled();
             }).not.toThrow();
         });

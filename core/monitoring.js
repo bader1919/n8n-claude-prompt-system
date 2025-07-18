@@ -571,12 +571,10 @@ class MonitoringService {
         return (req, res, next) => {
             const startTime = Date.now();
 
-            // Override res.end to capture metrics
-            const originalEnd = res.end;
-            res.end = function(chunk, encoding) {
+            // Track response when finished
+            res.on('finish', () => {
                 const responseTime = Date.now() - startTime;
                 
-                // Track request metrics
                 this.trackRequest(
                     req.method,
                     req.route?.path || req.path,
@@ -588,9 +586,7 @@ class MonitoringService {
                         contentLength: res.get('content-length')
                     }
                 );
-
-                return originalEnd.call(this, chunk, encoding);
-            }.bind(this);
+            });
 
             next();
         };
