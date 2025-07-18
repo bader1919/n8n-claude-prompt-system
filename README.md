@@ -1,37 +1,20 @@
 # n8n Claude Prompt System
 
-This repository contains the n8n Claude Prompt System, a powerful and flexible system designed to integrate Claude LLM capabilities into n8n workflows.
+This repository contains a simplified implementation of the n8n Claude Prompt System focused on basic usage.
 
-## Features
+## Basic Implementation
 
-- **Multi-LLM Support**: The system now supports multiple Large Language Models (LLMs), allowing you to leverage different AI models seamlessly within your workflows.
-- **Template Auto-Discovery**: Automatically discover and load prompt templates from designated directories, simplifying template management and updates.
-- **Version Management**: Keep track of different versions of your prompt templates and system components to ensure compatibility and easy rollback.
-- **Advanced Error Handling**: Enhanced error detection and handling mechanisms to provide robust and reliable workflow executions.
-- **New Workflow Components**: Added new nodes and components to n8n for better integration and extended functionality with the Claude Prompt System.
+- Customer support template
+- Blog post template
 
-## Documentation
+This setup is designed to be straightforward and easy to use for common prompt system needs.
 
-For detailed information on the new features, please refer to the following documentation links:
+## Advanced Features
 
-- [Multi-LLM Support](docs/multi-llm-support.md)
-- [Template Auto-Discovery](docs/template-auto-discovery.md)
-- [Version Management](docs/version-management.md)
-- [Advanced Error Handling](docs/advanced-error-handling.md)
-- [Workflow Components](docs/workflow-components.md)
+For advanced features such as multi-LLM support, auto-discovery, and version management, please refer to the `feature/complete-system` branch.
 
-## Existing Features
+You can switch to that branch to explore and use the full capabilities of the system.
 
-(Keep existing content here...)
+---
 
-## Getting Started
-
-(Keep existing content here...)
-
-## Contributing
-
-(Keep existing content here...)
-
-## License
-
-(Keep existing content here...)
+Thank you for using the n8n Claude Prompt System!
