@@ -4,9 +4,6 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Install security updates
-RUN apk update && apk upgrade
-
 # Copy package files
 COPY package*.json ./
 
