@@ -27,29 +27,50 @@ class ErrorHandler {
      * Sanitize input to prevent injection attacks
      */
     sanitizeInput(input) {
+        // Handle non-string types recursively
         if (typeof input !== 'string') {
+            if (Array.isArray(input)) {
+                return input.map(item => this.sanitizeInput(item));
+            } else if (input && typeof input === 'object') {
+                const sanitized = {};
+                for (const [key, value] of Object.entries(input)) {
+                    sanitized[key] = this.sanitizeInput(value);
+                }
+                return sanitized;
+            }
             return input;
         }
 
         // Remove potential script injections
         let sanitized = input
             .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+            .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+            .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
             .replace(/on\w+\s*=/gi, '')
+            .replace(/style\s*=/gi, '')
             .replace(/eval\s*\(/gi, '')
             .replace(/Function\s*\(/gi, '')
             .replace(/setTimeout\s*\(/gi, '')
             .replace(/setInterval\s*\(/gi, '');
 
-        // Handle javascript: protocol specifically - remove the entire content if it starts with javascript:
-        if (sanitized.toLowerCase().startsWith('javascript:')) {
-            return '';
+        // Handle dangerous URL schemes
+        const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:', 'about:'];
+        for (const scheme of dangerousSchemes) {
+            if (sanitized.toLowerCase().includes(scheme)) {
+                sanitized = sanitized.replace(new RegExp(scheme, 'gi'), '');
+            }
         }
 
-        // Remove any remaining alert() calls and similar dangerous functions
+        // Remove any remaining dangerous functions and HTML
         sanitized = sanitized
             .replace(/alert\s*\([^)]*\)/gi, '')
             .replace(/confirm\s*\([^)]*\)/gi, '')
-            .replace(/prompt\s*\([^)]*\)/gi, '');
+            .replace(/prompt\s*\([^)]*\)/gi, '')
+            .replace(/<\s*\w.*?>/gi, '') // Remove any remaining HTML tags
+            .replace(/&lt;script/gi, '')
+            .replace(/&lt;\/script/gi, '');
 
         return sanitized.trim();
     }
