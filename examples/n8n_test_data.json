@@ -1,103 +1,26 @@
 {
-  "simple_customer_support_test": {
-    "description": "Basic customer support scenario for testing workflow",
-    "input_for_n8n": {
-      "template_name": "customer_support_template",
-      "template_category": "business_operations",
-      "variables": {
-        "company_name": "TechFlow Solutions",
-        "customer_context": "Premium customer",
-        "customer_issue": "Cannot access dashboard",
-        "priority_level": "Medium",
-        "account_type": "Premium",
-        "tone": "professional",
-        "response_time": "4 hours",
-        "issue_category": "Technical"
-      }
+  "customer_support_template": [
+    {
+      "id": "cs1",
+      "input": "Customer has an issue with their order not arriving on time.",
+      "expected_output": "Apologize for the delay, check the order status, and offer a solution or compensation."
     },
-    "expected_output": "Professional customer service response with troubleshooting steps"
-  },
-  
-  "data_analysis_test": {
-    "description": "Sales data analysis for executive report",
-    "input_for_n8n": {
-      "template_name": "data_analysis_template", 
-      "template_category": "business_operations",
-      "variables": {
-        "analysis_domain": "E-commerce Sales",
-        "dataset_name": "Monthly Sales Report",
-        "analysis_period": "January 2025",
-        "key_metrics": "Revenue, Orders, Conversion Rate",
-        "business_objective": "Identify growth opportunities",
-        "focus_area": "Customer acquisition",
-        "comparison_type": "Month-over-month",
-        "stakeholder_level": "Management",
-        "urgency_level": "Medium",
-        "analysis_type": "trend",
-        "trend_count": "3",
-        "metric_categories": "Sales, Marketing",
-        "benchmark_type": "historical average",
-        "anomaly_threshold": "2",
-        "recommendation_count": "5",
-        "summary_length": "150",
-        "chart_types": "line charts, bar graphs",
-        "risk_categories": "Market, Operational",
-        "timeline_scope": "Next 3 months"
-      }
-    },
-    "expected_output": "Executive summary with key insights and recommendations"
-  },
-
-  "blog_post_test": {
-    "description": "AI marketing blog post for content marketing",
-    "input_for_n8n": {
-      "template_name": "blog_post_template",
-      "template_category": "content_creation", 
-      "variables": {
-        "industry_vertical": "Marketing Technology",
-        "blog_topic": "AI Tools for Small Business Marketing",
-        "target_audience": "Small business owners",
-        "content_objective": "Lead generation",
-        "brand_tone": "Friendly and helpful",
-        "target_word_count": "1200",
-        "primary_keyword": "AI marketing tools",
-        "secondary_keywords": "small business marketing, automation tools",
-        "search_intent": "Commercial investigation",
-        "content_pillar": "Marketing Automation",
-        "brand_voice": "Expert yet accessible",
-        "cta_type": "Free trial signup",
-        "pain_point": "Limited marketing budget and time",
-        "section_count": "3",
-        "key_subtopics": "Cost-effective AI tools, automation basics, ROI measurement",
-        "example_count": "2"
-      }
-    },
-    "expected_output": "SEO-optimized blog post with clear structure and call-to-action"
-  },
-
-  "error_test_cases": {
-    "missing_variables": {
-      "description": "Test case to verify error handling for missing required variables",
-      "input_for_n8n": {
-        "template_name": "customer_support_template",
-        "template_category": "business_operations",
-        "variables": {
-          "company_name": "Test Company"
-        }
-      },
-      "expected_result": "Error: Missing required variables"
-    },
-    
-    "invalid_template": {
-      "description": "Test case for non-existent template",
-      "input_for_n8n": {
-        "template_name": "non_existent_template",
-        "template_category": "business_operations",
-        "variables": {
-          "test": "value"
-        }
-      },
-      "expected_result": "Error: Template not found"
+    {
+      "id": "cs2",
+      "input": "Customer wants to know how to reset their password.",
+      "expected_output": "Provide step-by-step instructions to reset the password via the account settings page."
     }
-  }
+  ],
+  "blog_post_template": [
+    {
+      "id": "bp1",
+      "input": "Write a blog post about the benefits of meditation for beginners.",
+      "expected_output": "An introductory blog post explaining meditation benefits, simple techniques, and tips for beginners."
+    },
+    {
+      "id": "bp2",
+      "input": "Create a blog post on easy home workouts for busy people.",
+      "expected_output": "A beginner-friendly blog post outlining quick and effective home workouts for people with limited time."
+    }
+  ]
 }
