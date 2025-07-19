@@ -13,12 +13,12 @@ describe('API Server', () => {
         // Create a minimal express app for testing
         app = express();
         app.use(express.json());
-        
+
         // Mock health endpoint
         app.get('/api/health', (req, res) => {
             res.json({ status: 'healthy', timestamp: new Date().toISOString() });
         });
-        
+
         // Mock authentication middleware
         const authMiddleware = (req, res, next) => {
             const apiKey = req.headers['x-api-key'];
@@ -27,7 +27,7 @@ describe('API Server', () => {
             }
             next();
         };
-        
+
         // Mock templates endpoint
         app.get('/api/templates', authMiddleware, (req, res) => {
             res.json({ templates: [] });
@@ -38,7 +38,7 @@ describe('API Server', () => {
         const response = await request(app)
             .get('/api/health')
             .expect(200);
-        
+
         expect(response.body.status).toBe('healthy');
         expect(response.body.timestamp).toBeDefined();
     });
@@ -54,7 +54,7 @@ describe('API Server', () => {
             .get('/api/templates')
             .set('x-api-key', 'test-api-key')
             .expect(200);
-        
+
         expect(response.body.templates).toBeDefined();
         expect(Array.isArray(response.body.templates)).toBe(true);
     });

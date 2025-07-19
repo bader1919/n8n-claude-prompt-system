@@ -16,7 +16,7 @@ describe('TemplateManager', () => {
         // Create test directories
         await fs.mkdir(testTemplateDir, { recursive: true });
         await fs.mkdir(testConfigDir, { recursive: true });
-        
+
         templateManager = new TemplateManager({
             templateDir: testTemplateDir,
             configDir: testConfigDir,
@@ -55,7 +55,7 @@ describe('TemplateManager', () => {
     test('should extract variables from template content', () => {
         const content = 'Hello {{name}}, your order {{order_id}} is ready. Contact {{support_email}} for help.';
         const variables = templateManager.extractVariables(content);
-        
+
         expect(variables).toEqual(['name', 'order_id', 'support_email']);
     });
 
